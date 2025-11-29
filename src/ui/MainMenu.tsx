@@ -4,9 +4,17 @@
  */
 
 import { useGameState } from '../hooks/useGameState';
+import { getNextStreakMilestone, createInitialDailyProgress } from '../daily/dailyChallenge';
 
 export function MainMenu() {
   const { setScreen, isNewPlayer, saveData, level } = useGameState();
+
+  // Get daily challenge info
+  const dailyProgress = saveData.dailyProgress || createInitialDailyProgress();
+  const hasCompletedToday = dailyProgress.lastCompletedDate === new Date().toISOString().split('T')[0];
+  const currentStreak = dailyProgress.currentStreak || 0;
+  const nextMilestone = getNextStreakMilestone(currentStreak);
+  const streakMessage = currentStreak > 0 ? `Keep your ${currentStreak} day streak going!` : null;
 
   const handlePlay = () => {
     if (isNewPlayer || !saveData.playerName) {
@@ -134,6 +142,54 @@ export function MainMenu() {
         </div>
       )}
 
+      {/* Daily Challenge Banner (for returning players) */}
+      {!isNewPlayer && saveData.playerName && !hasCompletedToday && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 87, 34, 0.2))',
+            border: '2px solid rgba(255, 152, 0, 0.5)',
+            borderRadius: '12px',
+            padding: '15px 25px',
+            marginBottom: '20px',
+            textAlign: 'center',
+            zIndex: 1,
+            maxWidth: '300px',
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '16px', color: '#FF9800' }}>
+            {currentStreak > 0 ? `🔥 ${currentStreak} Day Streak!` : '☀️ Daily Challenge Available!'}
+          </p>
+          {streakMessage && (
+            <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#b8b8b8' }}>
+              {streakMessage}
+            </p>
+          )}
+          {nextMilestone && (
+            <p style={{ margin: '3px 0 0 0', fontSize: '11px', color: '#4CAF50' }}>
+              {nextMilestone.daysAway} days to: {nextMilestone.reward.title}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Streak badge for completed daily */}
+      {!isNewPlayer && hasCompletedToday && currentStreak > 0 && (
+        <div
+          style={{
+            background: 'rgba(76, 175, 80, 0.2)',
+            border: '2px solid rgba(76, 175, 80, 0.5)',
+            borderRadius: '20px',
+            padding: '8px 20px',
+            marginBottom: '20px',
+            zIndex: 1,
+          }}
+        >
+          <p style={{ margin: 0, fontSize: '14px', color: '#4CAF50' }}>
+            ✅ Daily Complete • 🔥 {currentStreak} Day Streak
+          </p>
+        </div>
+      )}
+
       {/* Menu buttons */}
       <div
         style={{
@@ -154,6 +210,20 @@ export function MainMenu() {
         >
           {isNewPlayer ? '🎮 New Game' : '▶️ Continue'}
         </button>
+
+        {/* World Selector button (for returning players) */}
+        {!isNewPlayer && (
+          <button
+            className="btn btn-secondary"
+            onClick={() => setScreen('worldSelector')}
+            style={{
+              minWidth: '250px',
+              background: 'linear-gradient(135deg, #9C27B0, #673AB7)',
+            }}
+          >
+            🌍 Choose World
+          </button>
+        )}
 
         <button
           className="btn btn-secondary"

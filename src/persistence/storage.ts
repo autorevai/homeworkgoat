@@ -4,14 +4,12 @@
  */
 
 import type { SaveData, AvatarConfig } from './types';
-import { DEFAULT_AVATAR } from './types';
-import { createInitialStats } from '../learning/learningEngine';
+import { createDefaultSaveData as createDefaultSaveDataFromTypes, CURRENT_SAVE_VERSION, migrateSaveData } from './types';
 import { savePlayerData, loadPlayerData } from '../firebase/firestoreService';
 import { getUserId } from '../firebase/authService';
 import { logger } from '../utils/logger';
 
 const STORAGE_KEY = 'homework-goat-save';
-const CURRENT_VERSION = 1;
 
 // Track if we should sync to cloud
 let cloudSyncEnabled = false;
@@ -28,17 +26,7 @@ export function isCloudSyncEnabled(): boolean {
  * Create a fresh save data object with defaults
  */
 export function createDefaultSaveData(): SaveData {
-  return {
-    saveVersion: CURRENT_VERSION,
-    playerName: '',
-    avatarConfig: { ...DEFAULT_AVATAR },
-    xp: 0,
-    completedQuestIds: [],
-    unlockedCosmetics: [],
-    learningStats: createInitialStats(),
-    createdAt: Date.now(),
-    lastPlayedAt: Date.now(),
-  };
+  return createDefaultSaveDataFromTypes();
 }
 
 /**
@@ -56,21 +44,17 @@ export function loadSaveData(): SaveData {
 
     const data = JSON.parse(raw) as SaveData;
 
-    // Version check - migrate if needed in the future
-    if (data.saveVersion !== CURRENT_VERSION) {
-      logger.warn('storage', 'save_version_mismatch', { found: data.saveVersion, expected: CURRENT_VERSION });
-      return createDefaultSaveData();
+    // Version check - migrate if needed
+    if (data.saveVersion !== CURRENT_SAVE_VERSION) {
+      logger.warn('storage', 'save_version_mismatch', { found: data.saveVersion, expected: CURRENT_SAVE_VERSION });
+      // Migrate old data to new format
+      return migrateSaveData(data);
     }
 
     // Validate required fields exist
     if (!data.avatarConfig || typeof data.xp !== 'number') {
       logger.warn('storage', 'save_data_corrupted', { hasAvatar: !!data.avatarConfig, xpType: typeof data.xp });
       return createDefaultSaveData();
-    }
-
-    // Ensure learning stats exist (for backwards compatibility)
-    if (!data.learningStats) {
-      data.learningStats = createInitialStats();
     }
 
     logger.storage.localLoadSuccess(true);

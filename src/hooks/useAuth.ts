@@ -8,6 +8,7 @@ import type { User } from 'firebase/auth';
 import { signInAnonymous, signOut, onAuthChange } from '../firebase/authService';
 import { enableCloudSync, syncToCloud, loadCloudSaveData } from '../persistence/storage';
 import { logger } from '../utils/logger';
+import { startSession, endSession } from '../firebase/analyticsService';
 
 interface AuthState {
   user: User | null;
@@ -49,6 +50,12 @@ export function useAuth() {
       logger.auth.signInSuccess(user.uid, user.isAnonymous);
       // Sync local data to cloud after sign in
       await syncToCloud();
+      // Start analytics session
+      try {
+        await startSession(user.uid, user.metadata.creationTime === user.metadata.lastSignInTime);
+      } catch (e) {
+        console.error('Failed to start analytics session:', e);
+      }
       return user;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
@@ -66,6 +73,12 @@ export function useAuth() {
     logger.auth.signOut();
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
+      // End analytics session before signing out
+      try {
+        await endSession();
+      } catch (e) {
+        console.error('Failed to end analytics session:', e);
+      }
       await signOut();
       enableCloudSync(false);
     } catch (error) {

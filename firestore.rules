@@ -5,5 +5,30 @@ service cloud.firestore {
     match /players/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Game sessions - users can create and update their own sessions
+    match /game_sessions/{sessionId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Question events - users can create events for themselves, read their own
+    match /question_events/{eventId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // User events - users can create events for themselves, read their own
+    match /user_events/{eventId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Daily stats - anyone authenticated can read, only increment via rules
+    match /daily_stats/{dateId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+    }
   }
 }

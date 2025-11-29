@@ -15,8 +15,11 @@ import { WorldScene } from './game/WorldScene';
 import { Hud } from './ui/Hud';
 import { QuestDialog } from './ui/QuestDialog';
 import { QuestComplete } from './ui/QuestComplete';
+import { WorldSelector } from './ui/WorldSelector';
+import { BossBattle } from './ui/BossBattle';
 import { initAnalytics } from './firebase/config';
 import type { Quest } from './learning/types';
+import type { BossBattle as BossBattleType } from './conquest/bosses';
 
 function LoadingScreen() {
   return (
@@ -66,10 +69,11 @@ function LoadingScreen() {
 }
 
 function App() {
-  const { screen, initialize } = useGameState();
+  const { screen, initialize, setScreen, setCurrentWorld } = useGameState();
   const { endQuest } = useQuestRunner();
   const { signIn } = useAuth();
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
+  const [activeBoss, setActiveBoss] = useState<BossBattleType | null>(null);
 
   // Initialize Firebase Analytics and Auth on mount
   useEffect(() => {
@@ -97,6 +101,21 @@ function App() {
     setActiveQuest(null);
   };
 
+  const handleSelectWorld = (worldId: string) => {
+    setCurrentWorld(worldId);
+    setScreen('playing');
+  };
+
+  const handleStartBoss = (boss: BossBattleType) => {
+    setActiveBoss(boss);
+    setScreen('bossBattle');
+  };
+
+  const handleCloseBoss = () => {
+    setActiveBoss(null);
+    setScreen('playing');
+  };
+
   // Clear activeQuest when quest complete screen is dismissed
   useEffect(() => {
     if (screen === 'playing' && activeQuest) {
@@ -112,25 +131,44 @@ function App() {
     switch (screen) {
       case 'loading':
         return <LoadingScreen />;
-      
+
       case 'mainMenu':
         return <MainMenu />;
-      
+
       case 'avatarSetup':
         return <AvatarCustomization />;
-      
+
       case 'nameSetup':
         return <NameSetup />;
-      
+
       case 'options':
         return <OptionsMenu />;
-      
+
+      case 'worldSelector':
+        return (
+          <WorldSelector
+            onSelectWorld={handleSelectWorld}
+            onBack={() => setScreen('mainMenu')}
+          />
+        );
+
+      case 'bossBattle':
+        return activeBoss ? (
+          <BossBattle
+            boss={activeBoss}
+            onClose={handleCloseBoss}
+          />
+        ) : (
+          <LoadingScreen />
+        );
+
       case 'playing':
       case 'questComplete':
         return (
           <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            <WorldScene 
+            <WorldScene
               onStartQuest={handleStartQuest}
+              onStartBoss={handleStartBoss}
               isQuestActive={activeQuest !== null}
             />
             <Hud />
@@ -143,7 +181,7 @@ function App() {
             {screen === 'questComplete' && <QuestComplete />}
           </div>
         );
-      
+
       default:
         return <LoadingScreen />;
     }

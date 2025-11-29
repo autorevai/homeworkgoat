@@ -3,10 +3,13 @@
  * Handles NPC dialogue, quest questions, and feedback display.
  */
 
+import { useState, useCallback } from 'react';
 import type { Quest } from '../learning/types';
 import { useQuestRunner } from '../hooks/useQuestRunner';
 import { useGameState } from '../hooks/useGameState';
 import { SpeakerButton } from './SpeakerButton';
+import { AbilityBar } from './AbilityBar';
+import type { AbilityEffect } from '../abilities/abilities';
 
 interface QuestDialogProps {
   quest: Quest;
@@ -14,7 +17,7 @@ interface QuestDialogProps {
 }
 
 export function QuestDialog({ quest, onClose }: QuestDialogProps) {
-  const { saveData } = useGameState();
+  const { saveData, level } = useGameState();
   const {
     phase,
     currentQuestion,
@@ -32,10 +35,43 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
     getHint,
   } = useQuestRunner();
 
+  // Ability effect states
+  const [eliminatedChoices, setEliminatedChoices] = useState<number[]>([]);
+
   // Start the quest if not already started
   if (phase === 'intro' && !currentQuestion) {
     startQuest(quest);
   }
+
+  // Handle ability usage
+  const handleUseAbility = useCallback((_abilityId: string, effect: AbilityEffect) => {
+    switch (effect) {
+      case 'fifty-fifty':
+        // Eliminate two wrong answers
+        if (currentQuestion) {
+          const wrongIndices = currentQuestion.choices
+            .map((_, i) => i)
+            .filter((i) => i !== currentQuestion.correctIndex && !eliminatedChoices.includes(i));
+          const toEliminate = wrongIndices.slice(0, 2);
+          setEliminatedChoices((prev) => [...prev, ...toEliminate]);
+        }
+        break;
+      case 'hint':
+        showHintAction();
+        break;
+      case 'skip':
+        // Skip to next question
+        nextQuestion();
+        break;
+      // Other effects handled elsewhere
+    }
+  }, [currentQuestion, eliminatedChoices, showHintAction, nextQuestion]);
+
+  // Reset ability effects when moving to next question
+  const handleNextQuestion = useCallback(() => {
+    setEliminatedChoices([]);
+    nextQuestion();
+  }, [nextQuestion]);
 
   const isQuestCompleted = saveData.completedQuestIds.includes(quest.id);
 
@@ -247,21 +283,29 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
 
             {/* Choices */}
             <div style={{ marginBottom: '20px' }}>
-              {currentQuestion.choices.map((choice, index) => (
-                <button
-                  key={index}
-                  className="choice-btn"
-                  onClick={() => submitAnswer(index)}
-                  style={{
-                    display: 'block',
-                  }}
-                >
-                  {choice}
-                </button>
-              ))}
+              {currentQuestion.choices.map((choice, index) => {
+                const isEliminated = eliminatedChoices.includes(index);
+                return (
+                  <button
+                    key={index}
+                    className="choice-btn"
+                    onClick={() => !isEliminated && submitAnswer(index)}
+                    disabled={isEliminated}
+                    style={{
+                      display: 'block',
+                      opacity: isEliminated ? 0.3 : 1,
+                      textDecoration: isEliminated ? 'line-through' : 'none',
+                      cursor: isEliminated ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {choice}
+                    {isEliminated && ' ❌'}
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Hint button */}
+            {/* Hint section */}
             {!showHint ? (
               <button
                 onClick={showHintAction}
@@ -290,6 +334,11 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
                   💡 <strong>Hint:</strong> {getHint()}
                 </p>
               </div>
+            )}
+
+            {/* Ability Bar - shows unlocked abilities */}
+            {level >= 2 && (
+              <AbilityBar onUseAbility={handleUseAbility} />
             )}
           </>
         )}
@@ -355,11 +404,11 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
 
             <button
               className="btn btn-primary"
-              onClick={nextQuestion}
+              onClick={handleNextQuestion}
               style={{ width: '100%' }}
             >
-              {currentQuestionIndex < totalQuestions - 1 
-                ? 'Next Question →' 
+              {currentQuestionIndex < totalQuestions - 1
+                ? 'Next Question →'
                 : 'See Results 🏆'}
             </button>
           </>

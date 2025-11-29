@@ -3,12 +3,20 @@
  * Manages the state and logic for running an active quest.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { Quest, Question } from '../learning/types';
 import { getQuestQuestions } from '../learning/learningEngine';
 import { getHintForQuestion, getEncouragementMessage, getMistakeMessage } from '../ai/aiHooks';
 import { useGameState } from './useGameState';
 import { logger } from '../utils/logger';
+import { getUserId } from '../firebase/authService';
+import {
+  logQuestStarted,
+  logQuestCompleted,
+  logQuestAbandoned,
+  logQuestionEvent,
+  logHintUsed,
+} from '../firebase/analyticsService';
 
 export type QuestPhase = 'intro' | 'question' | 'feedback' | 'complete';
 
@@ -28,7 +36,10 @@ interface QuestRunnerState {
 
 export function useQuestRunner() {
   const { recordAnswer, completeQuest } = useGameState();
-  
+  const questionStartTime = useRef<number>(Date.now());
+  const questStartTime = useRef<number>(Date.now());
+  const hintsUsedForCurrentQuestion = useRef<number>(0);
+
   const [state, setState] = useState<QuestRunnerState>({
     quest: null,
     questions: [],
@@ -47,6 +58,14 @@ export function useQuestRunner() {
     logger.quest.started(quest.id, quest.title);
     const questions = getQuestQuestions(quest);
     logger.debug('quest', 'questions_generated', { questId: quest.id, count: questions.length });
+
+    // Analytics: track quest start
+    questStartTime.current = Date.now();
+    const userId = getUserId();
+    if (userId) {
+      logQuestStarted(userId, quest.id, quest.title).catch(console.error);
+    }
+
     setState({
       quest,
       questions,
@@ -64,6 +83,8 @@ export function useQuestRunner() {
 
   const beginQuestions = useCallback(() => {
     logger.debug('quest', 'questions_phase_started');
+    questionStartTime.current = Date.now();
+    hintsUsedForCurrentQuestion.current = 0;
     setState(prev => ({ ...prev, phase: 'question' }));
   }, []);
 
@@ -73,6 +94,7 @@ export function useQuestRunner() {
 
       const currentQuestion = prev.questions[prev.currentQuestionIndex];
       const isCorrect = answerIndex === currentQuestion.correctIndex;
+      const timeToAnswerMs = Date.now() - questionStartTime.current;
 
       // Log the answer
       logger.quest.questionAnswered(
@@ -81,6 +103,24 @@ export function useQuestRunner() {
         isCorrect,
         currentQuestion.skill
       );
+
+      // Analytics: log detailed question event
+      const userId = getUserId();
+      if (userId) {
+        logQuestionEvent({
+          userId,
+          questId: prev.quest.id,
+          questionId: currentQuestion.id,
+          skill: currentQuestion.skill,
+          difficulty: currentQuestion.difficulty,
+          isCorrect,
+          selectedAnswer: answerIndex,
+          correctAnswer: currentQuestion.correctIndex,
+          timeToAnswerMs,
+          hintsUsed: hintsUsedForCurrentQuestion.current,
+          attemptNumber: 1,
+        }).catch(console.error);
+      }
 
       // Record the answer in game state
       recordAnswer(currentQuestion.skill, isCorrect);
@@ -107,6 +147,14 @@ export function useQuestRunner() {
     setState(prev => {
       if (prev.quest) {
         logger.quest.hintUsed(prev.quest.id, prev.currentQuestionIndex);
+
+        // Analytics: track hint usage
+        hintsUsedForCurrentQuestion.current += 1;
+        const userId = getUserId();
+        const currentQuestion = prev.questions[prev.currentQuestionIndex];
+        if (userId && currentQuestion) {
+          logHintUsed(userId, prev.quest.id, currentQuestion.id, currentQuestion.skill).catch(console.error);
+        }
       }
       return { ...prev, showHint: true };
     });
@@ -117,9 +165,24 @@ export function useQuestRunner() {
       if (!prev.quest) return prev;
 
       const nextIndex = prev.currentQuestionIndex + 1;
-      
+
       // Check if quest is complete
       if (nextIndex >= prev.questions.length) {
+        // Analytics: log quest completion
+        const timeSpentSeconds = Math.floor((Date.now() - questStartTime.current) / 1000);
+        const userId = getUserId();
+        if (userId) {
+          logQuestCompleted(
+            userId,
+            prev.quest.id,
+            prev.quest.title,
+            prev.correctCount,
+            prev.questions.length,
+            prev.quest.rewardXp,
+            timeSpentSeconds
+          ).catch(console.error);
+        }
+
         // Complete the quest
         completeQuest(
           prev.quest.id,
@@ -128,12 +191,16 @@ export function useQuestRunner() {
           prev.questions.length,
           prev.quest.title
         );
-        
+
         return {
           ...prev,
           phase: 'complete',
         };
       }
+
+      // Reset timer and hints for next question
+      questionStartTime.current = Date.now();
+      hintsUsedForCurrentQuestion.current = 0;
 
       // Move to next question
       return {
@@ -152,6 +219,18 @@ export function useQuestRunner() {
     setState(prev => {
       if (prev.quest && prev.phase !== 'complete') {
         logger.quest.abandoned(prev.quest.id, prev.currentQuestionIndex);
+
+        // Analytics: log quest abandoned
+        const userId = getUserId();
+        if (userId) {
+          logQuestAbandoned(
+            userId,
+            prev.quest.id,
+            prev.quest.title,
+            prev.currentQuestionIndex,
+            prev.questions.length
+          ).catch(console.error);
+        }
       }
       return {
         quest: null,
