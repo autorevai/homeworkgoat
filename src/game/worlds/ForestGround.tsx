@@ -19,9 +19,10 @@ function FairyLight({ position, color }: { position: [number, number, number]; c
 }
 
 // Enchanted tree with glowing elements
-function EnchantedTree({ position }: { position: [number, number, number] }) {
-  const scale = 0.8 + Math.random() * 0.4;
-  const rotation = Math.random() * Math.PI * 2;
+function EnchantedTree({ position, seed }: { position: [number, number, number]; seed: number }) {
+  // Use seed-based values instead of random to prevent re-renders causing jitter
+  const scale = useMemo(() => 0.8 + (seed % 100) / 250, [seed]);
+  const rotation = useMemo(() => (seed % 628) / 100, [seed]);
 
   return (
     <group position={position} rotation={[0, rotation, 0]} scale={scale}>
@@ -55,8 +56,10 @@ function EnchantedTree({ position }: { position: [number, number, number] }) {
 }
 
 // Giant magical mushroom
-function GiantMushroom({ position, color }: { position: [number, number, number]; color: string }) {
-  const scale = 0.6 + Math.random() * 0.6;
+function GiantMushroom({ position, color, seed }: { position: [number, number, number]; color: string; seed: number }) {
+  const scale = useMemo(() => 0.6 + (seed % 100) / 166, [seed]);
+  // Pre-calculate spot positions
+  const spotOffsets = useMemo(() => [0.05, 0.1, 0.15, 0.08, 0.12], []);
 
   return (
     <group position={position} scale={scale}>
@@ -70,13 +73,13 @@ function GiantMushroom({ position, color }: { position: [number, number, number]
         <sphereGeometry args={[0.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
         <meshStandardMaterial color={color} />
       </mesh>
-      {/* Spots */}
+      {/* Spots - fixed positions */}
       {[...Array(5)].map((_, i) => (
         <mesh
           key={i}
           position={[
             Math.cos(i * 1.2) * 0.5,
-            1.9 + Math.random() * 0.2,
+            1.9 + spotOffsets[i],
             Math.sin(i * 1.2) * 0.5,
           ]}
         >
@@ -90,12 +93,19 @@ function GiantMushroom({ position, color }: { position: [number, number, number]
   );
 }
 
-// Small decorative mushroom cluster
+// Small decorative mushroom cluster - fixed positions
 function MushroomCluster({ position }: { position: [number, number, number] }) {
+  // Pre-calculated fixed offsets for the 3 mushrooms
+  const offsets = useMemo(() => [
+    [-0.15, 0.1],
+    [0.1, -0.12],
+    [0.05, 0.18],
+  ], []);
+
   return (
     <group position={position}>
-      {[...Array(3)].map((_, i) => (
-        <group key={i} position={[Math.random() * 0.5 - 0.25, 0, Math.random() * 0.5 - 0.25]}>
+      {offsets.map((offset, i) => (
+        <group key={i} position={[offset[0], 0, offset[1]]}>
           <mesh position={[0, 0.15, 0]} castShadow>
             <cylinderGeometry args={[0.05, 0.07, 0.3, 6]} />
             <meshStandardMaterial color="#d4c4a8" />
@@ -111,8 +121,8 @@ function MushroomCluster({ position }: { position: [number, number, number] }) {
 }
 
 // Mystical stone with runes - static glow to prevent dizziness
-function RuneStone({ position }: { position: [number, number, number] }) {
-  const rotation = useMemo(() => Math.random() * Math.PI, []);
+function RuneStone({ position, seed }: { position: [number, number, number]; seed: number }) {
+  const rotation = useMemo(() => (seed % 314) / 100, [seed]);
 
   return (
     <group position={position}>
@@ -174,52 +184,50 @@ function FallenLog({ position, rotation }: { position: [number, number, number];
 }
 
 export function ForestGround() {
-  // Generate positions for various elements
+  // All positions are pre-computed and stable - no Math.random() during render!
+
+  // Generate tree positions deterministically
   const enchantedTrees = useMemo(() => {
-    const positions: [number, number, number][] = [];
-    // Outer ring of trees
+    const positions: { pos: [number, number, number]; seed: number }[] = [];
+    // Outer ring of trees - evenly distributed
     for (let i = 0; i < 16; i++) {
       const angle = (i / 16) * Math.PI * 2;
-      const radius = 15 + Math.random() * 3;
-      positions.push([
-        Math.cos(angle) * radius,
-        0,
-        Math.sin(angle) * radius,
-      ]);
+      const radiusOffset = (i * 7) % 3; // Deterministic variation
+      const radius = 15 + radiusOffset;
+      positions.push({
+        pos: [Math.cos(angle) * radius, 0, Math.sin(angle) * radius],
+        seed: i * 137,
+      });
     }
-    // Some inner trees (avoiding center)
+    // Inner trees - fixed positions
+    const innerAngles = [0.5, 1.2, 2.1, 3.0, 3.8, 4.5, 5.3, 6.0];
     for (let i = 0; i < 8; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 8 + Math.random() * 4;
-      positions.push([
-        Math.cos(angle) * radius,
-        0,
-        Math.sin(angle) * radius,
-      ]);
+      const angle = innerAngles[i];
+      const radius = 8 + (i % 3) * 1.5;
+      positions.push({
+        pos: [Math.cos(angle) * radius, 0, Math.sin(angle) * radius],
+        seed: (i + 100) * 137,
+      });
     }
     return positions;
   }, []);
 
   const giantMushrooms = useMemo(() => [
-    { pos: [-6, 0, 4] as [number, number, number], color: '#FF6B6B' },
-    { pos: [7, 0, -3] as [number, number, number], color: '#9C27B0' },
-    { pos: [-4, 0, -7] as [number, number, number], color: '#FF9800' },
-    { pos: [5, 0, 6] as [number, number, number], color: '#E91E63' },
+    { pos: [-6, 0, 4] as [number, number, number], color: '#FF6B6B', seed: 1 },
+    { pos: [7, 0, -3] as [number, number, number], color: '#9C27B0', seed: 2 },
+    { pos: [-4, 0, -7] as [number, number, number], color: '#FF9800', seed: 3 },
+    { pos: [5, 0, 6] as [number, number, number], color: '#E91E63', seed: 4 },
   ], []);
 
-  // Reduced number of fairy lights for better performance
+  // Fixed fairy light positions
   const fairyLights = useMemo(() => {
     const lights: { pos: [number, number, number]; color: string }[] = [];
     const colors = ['#90EE90', '#00FFFF', '#FFD700', '#FF69B4', '#87CEEB'];
     for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2; // Evenly distributed
+      const angle = (i / 8) * Math.PI * 2;
       const radius = 5 + (i % 2) * 4;
       lights.push({
-        pos: [
-          Math.cos(angle) * radius,
-          1.5 + (i % 3) * 0.5,
-          Math.sin(angle) * radius,
-        ],
+        pos: [Math.cos(angle) * radius, 1.5 + (i % 3) * 0.5, Math.sin(angle) * radius],
         color: colors[i % colors.length],
       });
     }
@@ -227,15 +235,46 @@ export function ForestGround() {
   }, []);
 
   const runeStones = useMemo(() => [
-    [-8, 0, -2] as [number, number, number],
-    [9, 0, 2] as [number, number, number],
-    [2, 0, -9] as [number, number, number],
+    { pos: [-8, 0, -2] as [number, number, number], seed: 10 },
+    { pos: [9, 0, 2] as [number, number, number], seed: 20 },
+    { pos: [2, 0, -9] as [number, number, number], seed: 30 },
   ], []);
 
   const fallenLogs = useMemo(() => [
     { pos: [-10, 0, 5] as [number, number, number], rot: 0.5 },
     { pos: [8, 0, -8] as [number, number, number], rot: 1.2 },
   ], []);
+
+  // Pre-computed moss patch positions
+  const mossPatches = useMemo(() => {
+    const patches: { pos: [number, number, number]; rot: number; size: number }[] = [];
+    for (let i = 0; i < 20; i++) {
+      // Use deterministic positions based on index
+      const angle = (i / 20) * Math.PI * 2 + (i % 3) * 0.5;
+      const radius = 5 + (i % 7) * 2;
+      patches.push({
+        pos: [Math.cos(angle) * radius, 0.01, Math.sin(angle) * radius],
+        rot: (i * 31) % 628 / 100,
+        size: 0.5 + (i % 5) * 0.2,
+      });
+    }
+    return patches;
+  }, []);
+
+  // Pre-computed mushroom cluster positions
+  const mushroomClusters = useMemo(() => {
+    const clusters: { pos: [number, number, number]; seed: number }[] = [];
+    for (let i = 0; i < 15; i++) {
+      // Deterministic positions spread across the map
+      const angle = (i / 15) * Math.PI * 2 + 0.3;
+      const radius = 4 + (i % 5) * 2.5;
+      clusters.push({
+        pos: [Math.cos(angle) * radius, 0, Math.sin(angle) * radius],
+        seed: i * 41,
+      });
+    }
+    return clusters;
+  }, []);
 
   return (
     <group>
@@ -245,31 +284,27 @@ export function ForestGround() {
         <meshStandardMaterial color="#2d4a2d" />
       </mesh>
 
-      {/* Moss patches on ground */}
-      {[...Array(20)].map((_, i) => (
+      {/* Moss patches on ground - fixed positions */}
+      {mossPatches.map((patch, i) => (
         <mesh
           key={`moss-${i}`}
-          rotation={[-Math.PI / 2, Math.random() * Math.PI, 0]}
-          position={[
-            (Math.random() - 0.5) * 30,
-            0.01,
-            (Math.random() - 0.5) * 30,
-          ]}
+          rotation={[-Math.PI / 2, patch.rot, 0]}
+          position={patch.pos}
           receiveShadow
         >
-          <circleGeometry args={[0.5 + Math.random() * 1, 8]} />
+          <circleGeometry args={[patch.size, 8]} />
           <meshStandardMaterial color="#3d5a3d" />
         </mesh>
       ))}
 
       {/* Enchanted trees */}
-      {enchantedTrees.map((pos, i) => (
-        <EnchantedTree key={`tree-${i}`} position={pos} />
+      {enchantedTrees.map((tree, i) => (
+        <EnchantedTree key={`tree-${i}`} position={tree.pos} seed={tree.seed} />
       ))}
 
       {/* Giant magical mushrooms */}
       {giantMushrooms.map((m, i) => (
-        <GiantMushroom key={`giantmush-${i}`} position={m.pos} color={m.color} />
+        <GiantMushroom key={`giantmush-${i}`} position={m.pos} color={m.color} seed={m.seed} />
       ))}
 
       {/* Fairy circle in the center */}
@@ -281,8 +316,8 @@ export function ForestGround() {
       ))}
 
       {/* Rune stones */}
-      {runeStones.map((pos, i) => (
-        <RuneStone key={`rune-${i}`} position={pos} />
+      {runeStones.map((stone, i) => (
+        <RuneStone key={`rune-${i}`} position={stone.pos} seed={stone.seed} />
       ))}
 
       {/* Fallen logs */}
@@ -290,19 +325,10 @@ export function ForestGround() {
         <FallenLog key={`log-${i}`} position={log.pos} rotation={log.rot} />
       ))}
 
-      {/* Mushroom clusters scattered around */}
-      {[...Array(15)].map((_, i) => (
-        <MushroomCluster
-          key={`cluster-${i}`}
-          position={[
-            (Math.random() - 0.5) * 25,
-            0,
-            (Math.random() - 0.5) * 25,
-          ]}
-        />
+      {/* Mushroom clusters - fixed positions */}
+      {mushroomClusters.map((cluster, i) => (
+        <MushroomCluster key={`cluster-${i}`} position={cluster.pos} />
       ))}
-
-      {/* Removed fog effect - was causing dizziness */}
     </group>
   );
 }
