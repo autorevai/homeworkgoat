@@ -138,6 +138,9 @@ export const useGameState = create<GameState>((set, get) => ({
     if (!saveData.gradeLevel) {
       saveData.gradeLevel = 3; // Default to 3rd grade
     }
+    if (saveData.tutorialCompleted === undefined) {
+      saveData.tutorialCompleted = false;
+    }
 
     // Check if streak is broken
     if (isStreakBroken(saveData.dailyProgress)) {

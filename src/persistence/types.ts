@@ -296,6 +296,9 @@ export interface SaveData {
   audioEnabled: boolean;
   autoReadQuestions: boolean;
 
+  // Tutorial state
+  tutorialCompleted: boolean;
+
   // Timestamps
   createdAt: number;
   lastPlayedAt: number;
@@ -350,6 +353,7 @@ export function createDefaultSaveData(): SaveData {
     },
     audioEnabled: true,
     autoReadQuestions: false,
+    tutorialCompleted: false,
     createdAt: Date.now(),
     lastPlayedAt: Date.now(),
   };
@@ -391,6 +395,9 @@ export function migrateSaveData(oldData: Partial<SaveData>): SaveData {
 
     // Version 5: Grade level for difficulty scaling
     gradeLevel: oldData.gradeLevel || 3,
+
+    // Version 6: Tutorial state
+    tutorialCompleted: oldData.tutorialCompleted ?? false,
   };
 
   return migrated;

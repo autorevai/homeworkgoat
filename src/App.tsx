@@ -3,7 +3,7 @@
  * Main application entry point that handles screen routing and game initialization.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { useQuestRunner } from './hooks/useQuestRunner';
 import { useAuth } from './hooks/useAuth';
@@ -20,6 +20,8 @@ import { WorldSelector } from './ui/WorldSelector';
 import { BossBattle } from './ui/BossBattle';
 import { ChestPuzzle } from './ui/ChestPuzzle';
 import { ShardPuzzle } from './ui/ShardPuzzle';
+import { Tutorial, useTutorial } from './ui/Tutorial';
+import { ErrorBoundary, GameErrorBoundary } from './ui/ErrorBoundary';
 import { initAnalytics } from './firebase/config';
 import { initializeGameTestAPI } from './testing/agentTestAPI';
 import type { Quest } from './learning/types';
@@ -82,6 +84,7 @@ function App() {
   const [activeBoss, setActiveBoss] = useState<BossBattleType | null>(null);
   const [activeChest, setActiveChest] = useState<TreasureChestDef | null>(null);
   const [activeShard, setActiveShard] = useState<CrystalShardDef | null>(null);
+  const { showTutorial, completeTutorial, skipTutorial } = useTutorial();
 
   // Initialize Firebase Analytics, Auth, and Test API on mount
   useEffect(() => {
@@ -194,6 +197,29 @@ function App() {
     setActiveShard(null);
   };
 
+  // Safe close all modals - used for error recovery
+  const safeCloseAllModals = useCallback(() => {
+    setActiveQuest(null);
+    setActiveBoss(null);
+    setActiveChest(null);
+    setActiveShard(null);
+    if (screen === 'bossBattle') {
+      setScreen('playing');
+    }
+  }, [screen, setScreen]);
+
+  // Handle errors in modals - close them and return to game
+  const handleModalError = useCallback(() => {
+    console.warn('[App] Modal error occurred, closing all modals');
+    safeCloseAllModals();
+  }, [safeCloseAllModals]);
+
+  // Handle errors in game world - reset to main menu if severe
+  const handleGameError = useCallback(() => {
+    console.warn('[App] Game world error occurred');
+    safeCloseAllModals();
+  }, [safeCloseAllModals]);
+
   // Clear activeQuest when quest complete screen is dismissed
   useEffect(() => {
     if (screen === 'playing' && activeQuest) {
@@ -235,10 +261,12 @@ function App() {
 
       case 'bossBattle':
         return activeBoss ? (
-          <BossBattle
-            boss={activeBoss}
-            onClose={handleCloseBoss}
-          />
+          <ErrorBoundary onReset={handleCloseBoss}>
+            <BossBattle
+              boss={activeBoss}
+              onClose={handleCloseBoss}
+            />
+          </ErrorBoundary>
         ) : (
           <LoadingScreen />
         );
@@ -247,37 +275,50 @@ function App() {
       case 'questComplete':
         return (
           <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-            <WorldScene
-              onStartQuest={handleStartQuest}
-              onStartBoss={handleStartBoss}
-              onOpenChest={handleOpenChest}
-              onCollectShard={handleCollectShard}
-              isQuestActive={activeQuest !== null || activeChest !== null || activeShard !== null}
-            />
+            <GameErrorBoundary onReset={handleGameError}>
+              <WorldScene
+                onStartQuest={handleStartQuest}
+                onStartBoss={handleStartBoss}
+                onOpenChest={handleOpenChest}
+                onCollectShard={handleCollectShard}
+                isQuestActive={activeQuest !== null || activeChest !== null || activeShard !== null}
+              />
+            </GameErrorBoundary>
             <Hud />
             {activeQuest && screen !== 'questComplete' && (
-              <QuestDialog
-                quest={activeQuest}
-                onClose={handleCloseQuest}
-              />
+              <ErrorBoundary onReset={handleModalError}>
+                <QuestDialog
+                  quest={activeQuest}
+                  onClose={handleCloseQuest}
+                />
+              </ErrorBoundary>
             )}
             {activeChest && (
-              <ChestPuzzle
-                chest={activeChest}
-                onSuccess={handleChestSuccess}
-                onClose={handleCloseChest}
-              />
+              <ErrorBoundary onReset={handleModalError}>
+                <ChestPuzzle
+                  chest={activeChest}
+                  onSuccess={handleChestSuccess}
+                  onClose={handleCloseChest}
+                />
+              </ErrorBoundary>
             )}
             {activeShard && (
-              <ShardPuzzle
-                shard={activeShard}
-                worldId={activeShard.worldId}
-                collectedShardIds={saveData.collectedShardIds || []}
-                onSuccess={handleShardSuccess}
-                onClose={handleCloseShard}
-              />
+              <ErrorBoundary onReset={handleModalError}>
+                <ShardPuzzle
+                  shard={activeShard}
+                  worldId={activeShard.worldId}
+                  collectedShardIds={saveData.collectedShardIds || []}
+                  onSuccess={handleShardSuccess}
+                  onClose={handleCloseShard}
+                />
+              </ErrorBoundary>
             )}
             {screen === 'questComplete' && <QuestComplete />}
+            {showTutorial && screen === 'playing' && (
+              <ErrorBoundary onReset={skipTutorial}>
+                <Tutorial onComplete={completeTutorial} onSkip={skipTutorial} />
+              </ErrorBoundary>
+            )}
           </div>
         );
 
@@ -287,9 +328,11 @@ function App() {
   };
 
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
-      {renderScreen()}
-    </div>
+    <ErrorBoundary>
+      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+        {renderScreen()}
+      </div>
+    </ErrorBoundary>
   );
 }
 

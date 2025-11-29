@@ -455,10 +455,11 @@ interface GameTestAPI {
 4. [ ] Tutorial system (moved to Sprint 3)
 
 ### Sprint 3: Tutorial & Polish (Current)
-1. [ ] Interactive tutorial system
+1. [✅] Interactive tutorial system
 2. [✅] Agent testing interface (window.gameTestAPI)
-3. [ ] Achievement system
-4. [ ] Sound effects
+3. [✅] Error boundaries and crash recovery
+4. [ ] Achievement system
+5. [ ] Sound effects
 
 ### Sprint 4: Building Foundation
 1. [ ] Block currency system
@@ -478,6 +479,14 @@ interface GameTestAPI {
 ---
 
 ## Changelog
+
+### v2.3 - November 29, 2024
+- Implemented Interactive Tutorial System (9 steps, movement detection)
+- Added Error Boundaries for crash recovery
+- Added GameErrorBoundary for 3D rendering errors
+- Modals now fail gracefully and return to game
+- Auto-recovery from WebGL context loss
+- Safe modal close on errors
 
 ### v2.2 - November 29, 2024
 - Implemented Agent Testing Interface (window.gameTestAPI)
