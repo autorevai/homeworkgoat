@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useGameState } from '../hooks/useGameState';
+import { useSound, SoundTriggers } from '../hooks/useSound';
 import type { BossBattle as BossBattleType } from '../conquest/bosses';
 import { getCurrentBossPhase, calculateBossDamage, getDifficultyInfo } from '../conquest/bosses';
 import { getQuestionsByIds } from '../learning/questions';
@@ -48,6 +49,7 @@ type BattlePhase = 'intro' | 'fighting' | 'victory' | 'defeat';
 
 export function BossBattle({ boss, onClose }: BossBattleProps) {
   const { defeatBoss, recordAnswer, tickAbilityCooldowns } = useGameState();
+  const { playSound } = useSound();
   const [battlePhase, setBattlePhase] = useState<BattlePhase>('intro');
   const [bossHealth, setBossHealth] = useState(100);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -157,6 +159,17 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
       setLastAnswerCorrect(isCorrect);
       setShowFeedback(true);
 
+      // Play sound based on answer
+      if (isCorrect) {
+        playSound(SoundTriggers.bossDamage);
+        // Play speed bonus sound for fast answers
+        if (speedTier.multiplier >= 1.5) {
+          setTimeout(() => playSound(SoundTriggers.speedBonus), 200);
+        }
+      } else {
+        playSound(SoundTriggers.wrongAnswer);
+      }
+
       // Record the answer for learning stats
       recordAnswer(currentQuestion.skill, isCorrect);
       tickAbilityCooldowns();
@@ -174,6 +187,7 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
         if (newHealth <= 0) {
           // Victory!
           setTimeout(() => {
+            playSound(SoundTriggers.bossDefeat);
             setBattlePhase('victory');
             defeatBoss(boss.id, boss.rewards.xp);
           }, 1500);
@@ -209,6 +223,7 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
       tickAbilityCooldowns,
       boss,
       defeatBoss,
+      playSound,
     ]
   );
 

@@ -3,10 +3,11 @@
  * Handles NPC dialogue, quest questions, and feedback display.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Quest } from '../learning/types';
 import { useQuestRunner } from '../hooks/useQuestRunner';
 import { useGameState } from '../hooks/useGameState';
+import { useSound, SoundTriggers } from '../hooks/useSound';
 import { SpeakerButton } from './SpeakerButton';
 import { AbilityBar } from './AbilityBar';
 import type { AbilityEffect } from '../abilities/abilities';
@@ -18,6 +19,7 @@ interface QuestDialogProps {
 
 export function QuestDialog({ quest, onClose }: QuestDialogProps) {
   const { saveData, level } = useGameState();
+  const { playSound } = useSound();
   const {
     phase,
     currentQuestion,
@@ -37,6 +39,23 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
 
   // Ability effect states
   const [eliminatedChoices, setEliminatedChoices] = useState<number[]>([]);
+
+  // Track previous phase to detect transitions
+  const prevPhaseRef = useRef(phase);
+
+  // Play sounds on phase transitions
+  useEffect(() => {
+    if (prevPhaseRef.current !== phase) {
+      if (phase === 'feedback') {
+        // Play correct or wrong sound
+        playSound(isCorrect ? SoundTriggers.correctAnswer : SoundTriggers.wrongAnswer);
+      } else if (phase === 'question' && prevPhaseRef.current === 'intro') {
+        // Quest started
+        playSound(SoundTriggers.questStart);
+      }
+      prevPhaseRef.current = phase;
+    }
+  }, [phase, isCorrect, playSound]);
 
   // Start the quest if not already started
   if (phase === 'intro' && !currentQuestion) {

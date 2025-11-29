@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { Achievement, getTierColor } from '../achievements/achievements';
+import { useSound, SoundTriggers } from '../hooks/useSound';
 
 interface AchievementPopupProps {
   achievement: Achievement;
@@ -14,8 +15,12 @@ interface AchievementPopupProps {
 export function AchievementPopup({ achievement, onClose }: AchievementPopupProps) {
   const [isVisible, setIsVisible] = useState(false);
   const tierColor = getTierColor(achievement.tier);
+  const { playSound } = useSound();
 
   useEffect(() => {
+    // Play achievement sound
+    playSound(SoundTriggers.achievementUnlock);
+
     // Animate in
     setTimeout(() => setIsVisible(true), 50);
 
@@ -26,7 +31,7 @@ export function AchievementPopup({ achievement, onClose }: AchievementPopupProps
     }, 4000);
 
     return () => clearTimeout(timer);
-  }, [onClose]);
+  }, [onClose, playSound]);
 
   return (
     <div
