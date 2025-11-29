@@ -6,6 +6,7 @@
 import type { Quest } from '../learning/types';
 import { useQuestRunner } from '../hooks/useQuestRunner';
 import { useGameState } from '../hooks/useGameState';
+import { SpeakerButton } from './SpeakerButton';
 
 interface QuestDialogProps {
   quest: Quest;
@@ -19,7 +20,6 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
     currentQuestion,
     currentQuestionIndex,
     totalQuestions,
-    selectedAnswer,
     isCorrect,
     showHint,
     correctCount,
@@ -134,9 +134,15 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
                 whiteSpace: 'pre-line',
                 lineHeight: '1.6',
                 fontSize: '16px',
+                position: 'relative',
               }}
             >
               {quest.npcIntro}
+              <SpeakerButton
+                text={quest.npcIntro}
+                size="small"
+                style={{ position: 'absolute', top: '10px', right: '10px' }}
+              />
             </div>
 
             {/* Quest info */}
@@ -221,16 +227,22 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
                 padding: '25px',
                 marginBottom: '25px',
                 textAlign: 'center',
+                position: 'relative',
               }}
             >
-              <p style={{ 
-                margin: 0, 
-                fontSize: '24px', 
+              <p style={{
+                margin: 0,
+                fontSize: '24px',
                 fontWeight: 'bold',
                 lineHeight: '1.4',
               }}>
                 {currentQuestion.prompt}
               </p>
+              <SpeakerButton
+                text={currentQuestion.prompt}
+                size="medium"
+                style={{ position: 'absolute', top: '10px', right: '10px' }}
+              />
             </div>
 
             {/* Choices */}
@@ -285,11 +297,11 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
         {/* Feedback phase */}
         {phase === 'feedback' && currentQuestion && (
           <>
-            <div style={{ textAlign: 'center', marginBottom: '25px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '25px', position: 'relative' }}>
               <span style={{ fontSize: '64px' }}>
                 {isCorrect ? '🎉' : '🤔'}
               </span>
-              <h2 style={{ 
+              <h2 style={{
                 color: isCorrect ? '#4CAF50' : '#FF9800',
                 margin: '15px 0 10px 0',
                 fontSize: '28px',
@@ -299,6 +311,11 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
               <p style={{ color: '#b8b8b8', fontSize: '16px', margin: 0 }}>
                 {feedbackMessage}
               </p>
+              <SpeakerButton
+                text={`${isCorrect ? 'Correct!' : 'Not quite!'} ${feedbackMessage}`}
+                size="small"
+                style={{ position: 'absolute', top: '0', right: '0' }}
+              />
             </div>
 
             {/* Show correct answer if wrong */}

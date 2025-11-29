@@ -5,7 +5,6 @@
 
 import { create } from 'zustand';
 import type { SaveData, AvatarConfig } from '../persistence/types';
-import type { LearningStats } from '../learning/types';
 import { 
   loadSaveData, 
   saveSaveData, 

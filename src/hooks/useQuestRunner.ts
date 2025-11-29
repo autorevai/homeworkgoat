@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import type { Quest, Question, QuestProgress } from '../learning/types';
+import type { Quest, Question } from '../learning/types';
 import { getQuestQuestions } from '../learning/learningEngine';
 import { getHintForQuestion, getEncouragementMessage, getMistakeMessage } from '../ai/aiHooks';
 import { useGameState } from './useGameState';

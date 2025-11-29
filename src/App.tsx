@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useGameState } from './hooks/useGameState';
 import { useQuestRunner } from './hooks/useQuestRunner';
+import { useAuth } from './hooks/useAuth';
 import { MainMenu } from './ui/MainMenu';
 import { AvatarCustomization } from './ui/AvatarCustomization';
 import { NameSetup } from './ui/NameSetup';
@@ -14,6 +15,7 @@ import { WorldScene } from './game/WorldScene';
 import { Hud } from './ui/Hud';
 import { QuestDialog } from './ui/QuestDialog';
 import { QuestComplete } from './ui/QuestComplete';
+import { initAnalytics } from './firebase/config';
 import type { Quest } from './learning/types';
 
 function LoadingScreen() {
@@ -65,12 +67,20 @@ function LoadingScreen() {
 
 function App() {
   const { screen, initialize } = useGameState();
-  const { isActive, endQuest } = useQuestRunner();
+  const { endQuest } = useQuestRunner();
+  const { signIn } = useAuth();
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
+
+  // Initialize Firebase Analytics and Auth on mount
+  useEffect(() => {
+    initAnalytics();
+    // Auto sign-in anonymously for cloud save
+    signIn();
+  }, []);
 
   // Initialize game state on mount
   useEffect(() => {
-    // Small delay to show loading screen
+    // Small delay to show loading screen and wait for auth
     const timer = setTimeout(() => {
       initialize();
     }, 500);

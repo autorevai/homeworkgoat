@@ -1,14 +1,27 @@
 /**
  * Storage Utilities
- * Handles saving and loading game data from localStorage.
+ * Handles saving and loading game data from localStorage and Firebase.
  */
 
 import type { SaveData, AvatarConfig } from './types';
 import { DEFAULT_AVATAR } from './types';
 import { createInitialStats } from '../learning/learningEngine';
+import { savePlayerData, loadPlayerData } from '../firebase/firestoreService';
+import { getUserId } from '../firebase/authService';
 
 const STORAGE_KEY = 'homework-goat-save';
 const CURRENT_VERSION = 1;
+
+// Track if we should sync to cloud
+let cloudSyncEnabled = false;
+
+export function enableCloudSync(enabled: boolean): void {
+  cloudSyncEnabled = enabled;
+}
+
+export function isCloudSyncEnabled(): boolean {
+  return cloudSyncEnabled;
+}
 
 /**
  * Create a fresh save data object with defaults
@@ -65,7 +78,7 @@ export function loadSaveData(): SaveData {
 }
 
 /**
- * Save data to localStorage
+ * Save data to localStorage (and Firebase if enabled)
  */
 export function saveSaveData(data: SaveData): void {
   try {
@@ -74,8 +87,50 @@ export function saveSaveData(data: SaveData): void {
       lastPlayedAt: Date.now(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+
+    // Also save to Firebase if cloud sync is enabled
+    if (cloudSyncEnabled) {
+      const userId = getUserId();
+      if (userId) {
+        savePlayerData(userId, toSave).catch((error) => {
+          console.error('Failed to sync to cloud:', error);
+        });
+      }
+    }
   } catch (error) {
     console.error('Failed to save data:', error);
+  }
+}
+
+/**
+ * Load save data from Firebase (cloud)
+ */
+export async function loadCloudSaveData(): Promise<SaveData | null> {
+  const userId = getUserId();
+  if (!userId) return null;
+
+  try {
+    return await loadPlayerData(userId);
+  } catch (error) {
+    console.error('Failed to load cloud save:', error);
+    return null;
+  }
+}
+
+/**
+ * Sync local save data to cloud
+ */
+export async function syncToCloud(): Promise<boolean> {
+  const userId = getUserId();
+  if (!userId) return false;
+
+  try {
+    const localData = loadSaveData();
+    await savePlayerData(userId, localData);
+    return true;
+  } catch (error) {
+    console.error('Failed to sync to cloud:', error);
+    return false;
   }
 }
 
