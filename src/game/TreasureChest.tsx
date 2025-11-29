@@ -124,7 +124,6 @@ export function TreasureChest({ chest, isOpened, playerPosition, onInteract }: T
               boxShadow: `0 0 20px ${config.glowColor}`,
               border: `2px solid ${config.glowColor}`,
               textAlign: 'center',
-              animation: 'pulse 1.5s ease-in-out infinite',
             }}
           >
             <div style={{ marginBottom: '4px' }}>

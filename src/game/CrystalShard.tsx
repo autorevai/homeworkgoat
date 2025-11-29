@@ -113,7 +113,6 @@ export function CrystalShard({ shard, isCollected, playerPosition, onInteract }:
               boxShadow: `0 0 20px ${crystalColor.glow}`,
               border: `2px solid ${crystalColor.glow}`,
               textAlign: 'center',
-              animation: 'crystalPulse 1s ease-in-out infinite',
             }}
           >
             <div style={{ marginBottom: '4px' }}>
@@ -125,15 +124,6 @@ export function CrystalShard({ shard, isCollected, playerPosition, onInteract }:
           </div>
         </Html>
       )}
-
-      <style>
-        {`
-          @keyframes crystalPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-          }
-        `}
-      </style>
     </group>
   );
 }
