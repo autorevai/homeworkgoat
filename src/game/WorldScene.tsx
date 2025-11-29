@@ -20,6 +20,7 @@ import { worlds } from '../worlds/worldDefinitions';
 import { getBossesForWorld } from '../conquest/bosses';
 import { getChestsForWorld } from '../exploration/treasureChests';
 import { getShardsForWorld } from '../exploration/crystalShards';
+import { updatePlayerPosition } from '../testing/agentTestAPI';
 import type { Quest } from '../learning/types';
 import type { BossBattle } from '../conquest/bosses';
 import type { TreasureChestDef, CrystalShardDef } from '../persistence/types';
@@ -135,6 +136,8 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
 
   const handlePositionChange = useCallback((position: THREE.Vector3) => {
     setPlayerPosition(position);
+    // Update test API with player position
+    updatePlayerPosition(position.x, position.y, position.z);
   }, []);
 
   // Handle E key for interaction

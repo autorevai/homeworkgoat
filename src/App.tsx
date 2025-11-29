@@ -21,6 +21,7 @@ import { BossBattle } from './ui/BossBattle';
 import { ChestPuzzle } from './ui/ChestPuzzle';
 import { ShardPuzzle } from './ui/ShardPuzzle';
 import { initAnalytics } from './firebase/config';
+import { initializeGameTestAPI } from './testing/agentTestAPI';
 import type { Quest } from './learning/types';
 import type { BossBattle as BossBattleType } from './conquest/bosses';
 import type { TreasureChestDef, CrystalShardDef } from './persistence/types';
@@ -82,11 +83,13 @@ function App() {
   const [activeChest, setActiveChest] = useState<TreasureChestDef | null>(null);
   const [activeShard, setActiveShard] = useState<CrystalShardDef | null>(null);
 
-  // Initialize Firebase Analytics and Auth on mount
+  // Initialize Firebase Analytics, Auth, and Test API on mount
   useEffect(() => {
     initAnalytics();
     // Auto sign-in anonymously for cloud save
     signIn();
+    // Initialize Agent Testing API (accessible via window.gameTestAPI)
+    initializeGameTestAPI();
   }, []);
 
   // Initialize game state on mount
