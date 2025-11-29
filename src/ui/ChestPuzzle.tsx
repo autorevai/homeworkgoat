@@ -131,7 +131,7 @@ export function ChestPuzzle({ chest, onSuccess, onClose }: ChestPuzzleProps) {
                 {puzzle.prompt}
               </p>
               <SpeakerButton
-                text={puzzle.prompt.replace('×', 'times').replace('÷', 'divided by')}
+                text={puzzle.prompt}
                 size="medium"
                 style={{ position: 'absolute', top: '15px', right: '15px' }}
               />

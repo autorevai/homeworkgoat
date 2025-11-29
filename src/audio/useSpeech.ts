@@ -5,6 +5,21 @@
 import { useState, useCallback } from 'react';
 import { speak, stopSpeaking, isSpeaking } from './textToSpeech';
 
+/**
+ * Convert math symbols to spoken words for TTS
+ */
+function convertMathSymbolsToWords(text: string): string {
+  return text
+    .replace(/×/g, ' times ')
+    .replace(/÷/g, ' divided by ')
+    .replace(/\+/g, ' plus ')
+    .replace(/-/g, ' minus ')
+    .replace(/=/g, ' equals ')
+    .replace(/\?/g, ' what?')
+    .replace(/\s+/g, ' ') // Clean up extra spaces
+    .trim();
+}
+
 export function useSpeech() {
   const [speaking, setSpeaking] = useState(false);
 
@@ -15,8 +30,11 @@ export function useSpeech() {
       return;
     }
 
+    // Convert math symbols to spoken words
+    const spokenText = convertMathSymbolsToWords(text);
+
     await speak(
-      text,
+      spokenText,
       'npc',
       () => setSpeaking(true),
       () => setSpeaking(false)

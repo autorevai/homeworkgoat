@@ -121,7 +121,7 @@ export function ShardPuzzle({ shard, worldId, collectedShardIds, onSuccess, onCl
                 {puzzle.prompt}
               </p>
               <SpeakerButton
-                text={puzzle.prompt.replace('×', 'times').replace('÷', 'divided by')}
+                text={puzzle.prompt}
                 size="medium"
                 style={{ position: 'absolute', top: '12px', right: '12px' }}
               />

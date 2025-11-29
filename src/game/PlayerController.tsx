@@ -15,12 +15,12 @@ interface PlayerControllerProps {
   disabled?: boolean;
 }
 
-// World boundaries
+// World boundaries - 40x40 map
 const BOUNDS = {
-  minX: -17,
-  maxX: 17,
-  minZ: -10,
-  maxZ: 11,
+  minX: -19,
+  maxX: 19,
+  minZ: -19,
+  maxZ: 19,
 };
 
 // Movement settings
