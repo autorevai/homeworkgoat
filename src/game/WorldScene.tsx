@@ -145,7 +145,12 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
     if (isQuestActive) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
       if (e.key.toLowerCase() === 'e') {
+        e.preventDefault(); // Prevent any default behavior
+
         if (nearbyQuest) {
           onStartQuest(nearbyQuest);
         } else if (nearbyBoss) {
@@ -158,8 +163,9 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Use capture phase to ensure we get the event first
+    window.addEventListener('keydown', handleKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
   }, [nearbyQuest, nearbyBoss, nearbyChest, nearbyShard, onStartQuest, onStartBoss, onOpenChest, onCollectShard, isQuestActive, saveData.openedChestIds, saveData.collectedShardIds]);
 
   // Check which NPC/Boss/Chest/Shard is nearby
@@ -168,7 +174,7 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
     let closestBoss: BossBattle | null = null;
     let closestChest: TreasureChestDef | null = null;
     let closestShard: CrystalShardDef | null = null;
-    let closestDist = 3; // Interaction distance
+    let closestDist = 4; // Interaction distance (increased for better UX)
 
     // Check quest NPCs
     for (const quest of worldQuests) {

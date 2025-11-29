@@ -28,7 +28,7 @@ export function TreasureChest({ chest, isOpened, playerPosition, onInteract, hid
 
   // Calculate distance to player
   const distance = playerPosition.distanceTo(position);
-  const isNearby = distance < 3;
+  const isNearby = distance < 4; // Interaction distance
 
   // Animate glow
   useFrame(() => {

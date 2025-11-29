@@ -28,7 +28,7 @@ export function CrystalShard({ shard, isCollected, playerPosition, onInteract, h
 
   // Calculate distance to player
   const distance = playerPosition.distanceTo(position);
-  const isNearby = distance < 3;
+  const isNearby = distance < 4; // Interaction distance
 
   // Animate crystal floating and rotating - must be called before any early return
   useFrame((state) => {

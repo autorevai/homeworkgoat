@@ -17,7 +17,7 @@ interface NPCProps {
   playerPosition: THREE.Vector3;
 }
 
-const INTERACTION_DISTANCE = 3;
+const INTERACTION_DISTANCE = 4;
 
 export function NPC({ quest, position, isCompleted, onInteract, playerPosition }: NPCProps) {
   const groupRef = useRef<THREE.Group>(null);
