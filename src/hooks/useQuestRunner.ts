@@ -8,6 +8,7 @@ import type { Quest, Question } from '../learning/types';
 import { getQuestQuestions } from '../learning/learningEngine';
 import { getHintForQuestion, getEncouragementMessage, getMistakeMessage } from '../ai/aiHooks';
 import { useGameState } from './useGameState';
+import { logger } from '../utils/logger';
 
 export type QuestPhase = 'intro' | 'question' | 'feedback' | 'complete';
 
@@ -43,7 +44,9 @@ export function useQuestRunner() {
   });
 
   const startQuest = useCallback((quest: Quest) => {
+    logger.quest.started(quest.id, quest.title);
     const questions = getQuestQuestions(quest);
+    logger.debug('quest', 'questions_generated', { questId: quest.id, count: questions.length });
     setState({
       quest,
       questions,
@@ -60,6 +63,7 @@ export function useQuestRunner() {
   }, []);
 
   const beginQuestions = useCallback(() => {
+    logger.debug('quest', 'questions_phase_started');
     setState(prev => ({ ...prev, phase: 'question' }));
   }, []);
 
@@ -69,12 +73,20 @@ export function useQuestRunner() {
 
       const currentQuestion = prev.questions[prev.currentQuestionIndex];
       const isCorrect = answerIndex === currentQuestion.correctIndex;
-      
+
+      // Log the answer
+      logger.quest.questionAnswered(
+        prev.quest.id,
+        prev.currentQuestionIndex,
+        isCorrect,
+        currentQuestion.skill
+      );
+
       // Record the answer in game state
       recordAnswer(currentQuestion.skill, isCorrect);
 
       const newStreak = isCorrect ? prev.streak + 1 : 0;
-      const feedbackMessage = isCorrect 
+      const feedbackMessage = isCorrect
         ? getEncouragementMessage(newStreak)
         : getMistakeMessage();
 
@@ -92,7 +104,12 @@ export function useQuestRunner() {
   }, [recordAnswer]);
 
   const showHint = useCallback(() => {
-    setState(prev => ({ ...prev, showHint: true }));
+    setState(prev => {
+      if (prev.quest) {
+        logger.quest.hintUsed(prev.quest.id, prev.currentQuestionIndex);
+      }
+      return { ...prev, showHint: true };
+    });
   }, []);
 
   const nextQuestion = useCallback(() => {
@@ -132,18 +149,23 @@ export function useQuestRunner() {
   }, [completeQuest]);
 
   const endQuest = useCallback(() => {
-    setState({
-      quest: null,
-      questions: [],
-      currentQuestionIndex: 0,
-      phase: 'intro',
-      selectedAnswer: null,
-      isCorrect: null,
-      showHint: false,
-      correctCount: 0,
-      incorrectCount: 0,
-      feedbackMessage: '',
-      streak: 0,
+    setState(prev => {
+      if (prev.quest && prev.phase !== 'complete') {
+        logger.quest.abandoned(prev.quest.id, prev.currentQuestionIndex);
+      }
+      return {
+        quest: null,
+        questions: [],
+        currentQuestionIndex: 0,
+        phase: 'intro',
+        selectedAnswer: null,
+        isCorrect: null,
+        showHint: false,
+        correctCount: 0,
+        incorrectCount: 0,
+        feedbackMessage: '',
+        streak: 0,
+      };
     });
   }, []);
 

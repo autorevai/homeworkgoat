@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import type { SaveData, AvatarConfig } from '../persistence/types';
+import { logger } from '../utils/logger';
 import { 
   loadSaveData, 
   saveSaveData, 
@@ -67,10 +68,18 @@ export const useGameState = create<GameState>((set, get) => ({
 
   // Initialize the game from localStorage
   initialize: () => {
+    logger.debug('game', 'initializing_game_state');
     const saveData = loadSaveData();
     const isNewPlayer = !saveData.playerName;
     const level = levelFromXp(saveData.xp);
     const xpProgress = xpProgressInLevel(saveData.xp);
+
+    logger.game.initialized(isNewPlayer);
+    logger.debug('game', 'loaded_save_data', {
+      level,
+      xp: saveData.xp,
+      completedQuests: saveData.completedQuestIds.length,
+    });
 
     set({
       saveData,
@@ -81,10 +90,20 @@ export const useGameState = create<GameState>((set, get) => ({
     });
   },
 
-  setScreen: (screen) => set({ screen }),
+  setScreen: (screen) => {
+    const prevScreen = get().screen;
+    logger.game.screenChanged(prevScreen, screen);
+    set({ screen });
+  },
 
   updateAvatar: (config) => {
     const { saveData } = get();
+    logger.ui.avatarCustomized({
+      hairColor: config.hairColor,
+      shirtColor: config.shirtColor,
+      pantsColor: config.pantsColor,
+      accessory: config.accessory,
+    });
     const newSaveData = { ...saveData, avatarConfig: config };
     saveSaveData(newSaveData);
     set({ saveData: newSaveData });
@@ -92,44 +111,59 @@ export const useGameState = create<GameState>((set, get) => ({
 
   updatePlayerName: (name) => {
     const { saveData } = get();
+    logger.ui.nameSet(name.length);
     const newSaveData = { ...saveData, playerName: name };
     saveSaveData(newSaveData);
     set({ saveData: newSaveData, isNewPlayer: false });
   },
 
   addXp: (amount) => {
-    const { saveData } = get();
+    const { saveData, level: oldLevel } = get();
     const newXp = saveData.xp + amount;
     const newSaveData = { ...saveData, xp: newXp };
     const level = levelFromXp(newXp);
     const xpProgress = xpProgressInLevel(newXp);
-    
+
+    logger.game.xpGained(amount, newXp, 'direct');
+
+    if (level > oldLevel) {
+      logger.game.levelUp(level);
+    }
+
     saveSaveData(newSaveData);
     set({ saveData: newSaveData, level, xpProgress });
   },
 
   completeQuest: (questId, xpReward, correctAnswers, totalQuestions, questTitle) => {
-    const { saveData } = get();
-    
+    const { saveData, level: oldLevel } = get();
+
+    logger.quest.completed(questId, correctAnswers, totalQuestions, xpReward);
+
     // Only add quest if not already completed
     const completedQuestIds = saveData.completedQuestIds.includes(questId)
       ? saveData.completedQuestIds
       : [...saveData.completedQuestIds, questId];
-    
+
     const newXp = saveData.xp + xpReward;
-    const newSaveData = { 
-      ...saveData, 
+    const newSaveData = {
+      ...saveData,
       xp: newXp,
       completedQuestIds,
     };
-    
+
     const level = levelFromXp(newXp);
     const xpProgress = xpProgressInLevel(newXp);
-    
+
+    logger.game.xpGained(xpReward, newXp, `quest:${questId}`);
+
+    if (level > oldLevel) {
+      logger.game.levelUp(level);
+    }
+
     saveSaveData(newSaveData);
-    set({ 
-      saveData: newSaveData, 
-      level, 
+    set({
+      saveData: newSaveData,
+      level,
       xpProgress,
       questCompleteData: {
         questId,
@@ -144,6 +178,7 @@ export const useGameState = create<GameState>((set, get) => ({
 
   recordAnswer: (skill, correct) => {
     const { saveData } = get();
+    logger.debug('quest', 'answer_recorded', { skill, correct });
     const newStats = updateStatsAfterAnswer(saveData.learningStats, skill, correct);
     const newSaveData = { ...saveData, learningStats: newStats };
     saveSaveData(newSaveData);
@@ -151,6 +186,7 @@ export const useGameState = create<GameState>((set, get) => ({
   },
 
   resetProgress: () => {
+    logger.game.progressReset();
     clearSaveData();
     const saveData = createDefaultSaveData();
     set({
@@ -164,6 +200,7 @@ export const useGameState = create<GameState>((set, get) => ({
   },
 
   dismissQuestComplete: () => {
+    logger.debug('ui', 'quest_complete_dismissed');
     set({ questCompleteData: null, screen: 'playing' });
   },
 }));

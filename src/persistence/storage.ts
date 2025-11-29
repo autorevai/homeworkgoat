@@ -8,6 +8,7 @@ import { DEFAULT_AVATAR } from './types';
 import { createInitialStats } from '../learning/learningEngine';
 import { savePlayerData, loadPlayerData } from '../firebase/firestoreService';
 import { getUserId } from '../firebase/authService';
+import { logger } from '../utils/logger';
 
 const STORAGE_KEY = 'homework-goat-save';
 const CURRENT_VERSION = 1;
@@ -45,9 +46,11 @@ export function createDefaultSaveData(): SaveData {
  * Returns default data if no save exists or if data is corrupted
  */
 export function loadSaveData(): SaveData {
+  logger.storage.localLoadStarted();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
+      logger.storage.localLoadSuccess(false);
       return createDefaultSaveData();
     }
 
@@ -55,13 +58,13 @@ export function loadSaveData(): SaveData {
 
     // Version check - migrate if needed in the future
     if (data.saveVersion !== CURRENT_VERSION) {
-      console.warn('Save data version mismatch, using defaults');
+      logger.warn('storage', 'save_version_mismatch', { found: data.saveVersion, expected: CURRENT_VERSION });
       return createDefaultSaveData();
     }
 
     // Validate required fields exist
     if (!data.avatarConfig || typeof data.xp !== 'number') {
-      console.warn('Save data corrupted, using defaults');
+      logger.warn('storage', 'save_data_corrupted', { hasAvatar: !!data.avatarConfig, xpType: typeof data.xp });
       return createDefaultSaveData();
     }
 
@@ -70,9 +73,10 @@ export function loadSaveData(): SaveData {
       data.learningStats = createInitialStats();
     }
 
+    logger.storage.localLoadSuccess(true);
     return data;
   } catch (error) {
-    console.error('Failed to load save data:', error);
+    logger.storage.localLoadError(error instanceof Error ? error.message : 'Unknown error');
     return createDefaultSaveData();
   }
 }
@@ -81,24 +85,31 @@ export function loadSaveData(): SaveData {
  * Save data to localStorage (and Firebase if enabled)
  */
 export function saveSaveData(data: SaveData): void {
+  logger.storage.localSaveStarted();
   try {
     const toSave: SaveData = {
       ...data,
       lastPlayedAt: Date.now(),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    logger.storage.localSaveSuccess();
 
     // Also save to Firebase if cloud sync is enabled
     if (cloudSyncEnabled) {
       const userId = getUserId();
       if (userId) {
-        savePlayerData(userId, toSave).catch((error) => {
-          console.error('Failed to sync to cloud:', error);
-        });
+        logger.storage.cloudSyncStarted();
+        savePlayerData(userId, toSave)
+          .then(() => {
+            logger.storage.cloudSyncSuccess();
+          })
+          .catch((error) => {
+            logger.storage.cloudSyncError(error instanceof Error ? error.message : 'Unknown error');
+          });
       }
     }
   } catch (error) {
-    console.error('Failed to save data:', error);
+    logger.storage.localSaveError(error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -107,12 +118,18 @@ export function saveSaveData(data: SaveData): void {
  */
 export async function loadCloudSaveData(): Promise<SaveData | null> {
   const userId = getUserId();
-  if (!userId) return null;
+  if (!userId) {
+    logger.debug('storage', 'cloud_load_skipped_no_user');
+    return null;
+  }
 
+  logger.storage.cloudLoadStarted();
   try {
-    return await loadPlayerData(userId);
+    const data = await loadPlayerData(userId);
+    logger.storage.cloudLoadSuccess(data !== null);
+    return data;
   } catch (error) {
-    console.error('Failed to load cloud save:', error);
+    logger.storage.cloudLoadError(error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -122,14 +139,19 @@ export async function loadCloudSaveData(): Promise<SaveData | null> {
  */
 export async function syncToCloud(): Promise<boolean> {
   const userId = getUserId();
-  if (!userId) return false;
+  if (!userId) {
+    logger.debug('storage', 'cloud_sync_skipped_no_user');
+    return false;
+  }
 
+  logger.storage.cloudSyncStarted();
   try {
     const localData = loadSaveData();
     await savePlayerData(userId, localData);
+    logger.storage.cloudSyncSuccess();
     return true;
   } catch (error) {
-    console.error('Failed to sync to cloud:', error);
+    logger.storage.cloudSyncError(error instanceof Error ? error.message : 'Unknown error');
     return false;
   }
 }

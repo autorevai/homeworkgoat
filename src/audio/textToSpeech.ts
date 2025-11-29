@@ -3,6 +3,8 @@
  * Provides audio support for students who need help reading.
  */
 
+import { logger } from '../utils/logger';
+
 const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 
@@ -32,9 +34,11 @@ export async function speak(
   onEnd?: () => void
 ): Promise<void> {
   if (!ELEVENLABS_API_KEY) {
-    console.warn('ElevenLabs API key not configured');
+    logger.warn('audio', 'elevenlabs_api_key_missing');
     return;
   }
+
+  logger.audio.ttsStarted(text.length, voiceType);
 
   // Stop any currently playing audio
   stopSpeaking();
@@ -43,6 +47,7 @@ export async function speak(
 
   // Check cache first
   if (audioCache.has(cacheKey)) {
+    logger.audio.ttsCacheHit();
     const cachedAudio = audioCache.get(cacheKey)!;
     currentAudio = cachedAudio;
     cachedAudio.currentTime = 0;
@@ -50,6 +55,7 @@ export async function speak(
     if (onStart) onStart();
     cachedAudio.onended = () => {
       currentAudio = null;
+      logger.audio.ttsCompleted(text.length);
       if (onEnd) onEnd();
     };
 
@@ -59,6 +65,7 @@ export async function speak(
 
   try {
     const voiceId = VOICES[voiceType];
+    const startTime = performance.now();
 
     const response = await fetch(`${ELEVENLABS_API_URL}/${voiceId}`, {
       method: 'POST',
@@ -78,6 +85,9 @@ export async function speak(
       }),
     });
 
+    const latency = Math.round(performance.now() - startTime);
+    logger.performance.apiLatency('elevenlabs_tts', latency);
+
     if (!response.ok) {
       throw new Error(`ElevenLabs API error: ${response.status}`);
     }
@@ -93,12 +103,13 @@ export async function speak(
     if (onStart) onStart();
     audio.onended = () => {
       currentAudio = null;
+      logger.audio.ttsCompleted(text.length);
       if (onEnd) onEnd();
     };
 
     await audio.play();
   } catch (error) {
-    console.error('Text-to-speech error:', error);
+    logger.audio.ttsError(error instanceof Error ? error.message : 'Unknown error');
     currentAudio = null;
     if (onEnd) onEnd();
   }
@@ -109,6 +120,7 @@ export async function speak(
  */
 export function stopSpeaking(): void {
   if (currentAudio) {
+    logger.audio.ttsStopped();
     currentAudio.pause();
     currentAudio.currentTime = 0;
     currentAudio = null;
