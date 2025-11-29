@@ -10,6 +10,7 @@ import { useAuth } from './hooks/useAuth';
 import { MainMenu } from './ui/MainMenu';
 import { AvatarCustomization } from './ui/AvatarCustomization';
 import { NameSetup } from './ui/NameSetup';
+import { GradeLevelPicker } from './ui/GradeLevelPicker';
 import { OptionsMenu } from './ui/OptionsMenu';
 import { WorldScene } from './game/WorldScene';
 import { Hud } from './ui/Hud';
@@ -17,9 +18,13 @@ import { QuestDialog } from './ui/QuestDialog';
 import { QuestComplete } from './ui/QuestComplete';
 import { WorldSelector } from './ui/WorldSelector';
 import { BossBattle } from './ui/BossBattle';
+import { ChestPuzzle } from './ui/ChestPuzzle';
+import { ShardPuzzle } from './ui/ShardPuzzle';
 import { initAnalytics } from './firebase/config';
 import type { Quest } from './learning/types';
 import type { BossBattle as BossBattleType } from './conquest/bosses';
+import type { TreasureChestDef, CrystalShardDef } from './persistence/types';
+import { areAllShardsCollected, getShardCollectionReward } from './exploration/crystalShards';
 
 function LoadingScreen() {
   return (
@@ -69,11 +74,13 @@ function LoadingScreen() {
 }
 
 function App() {
-  const { screen, initialize, setScreen, setCurrentWorld } = useGameState();
+  const { screen, initialize, setScreen, setCurrentWorld, addXp, updateSaveData, saveData } = useGameState();
   const { endQuest } = useQuestRunner();
   const { signIn } = useAuth();
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossBattleType | null>(null);
+  const [activeChest, setActiveChest] = useState<TreasureChestDef | null>(null);
+  const [activeShard, setActiveShard] = useState<CrystalShardDef | null>(null);
 
   // Initialize Firebase Analytics and Auth on mount
   useEffect(() => {
@@ -116,6 +123,74 @@ function App() {
     setScreen('playing');
   };
 
+  const handleOpenChest = (chest: TreasureChestDef) => {
+    setActiveChest(chest);
+  };
+
+  const handleChestSuccess = (xp: number, coins: number, cosmetic?: string) => {
+    if (!activeChest) return;
+
+    // Add XP
+    addXp(xp);
+
+    // Update coins and mark chest as opened
+    const updates: Partial<typeof saveData> = {
+      coins: (saveData.coins || 0) + coins,
+      openedChestIds: [...(saveData.openedChestIds || []), activeChest.id],
+    };
+
+    // Add cosmetic if earned
+    if (cosmetic) {
+      updates.unlockedCosmetics = [...(saveData.unlockedCosmetics || []), cosmetic];
+    }
+
+    updateSaveData(updates);
+    setActiveChest(null);
+  };
+
+  const handleCloseChest = () => {
+    setActiveChest(null);
+  };
+
+  const handleCollectShard = (shard: CrystalShardDef) => {
+    setActiveShard(shard);
+  };
+
+  const handleShardSuccess = () => {
+    if (!activeShard) return;
+
+    // Add shard to collected
+    const newCollectedShards = [...(saveData.collectedShardIds || []), activeShard.id];
+
+    // Check if all shards in this world are now collected
+    const worldId = activeShard.worldId;
+    const allCollected = areAllShardsCollected(worldId, newCollectedShards);
+
+    let updates: Partial<typeof saveData> = {
+      collectedShardIds: newCollectedShards,
+    };
+
+    // Award bonus for completing all shards
+    if (allCollected) {
+      const reward = getShardCollectionReward(worldId);
+      updates = {
+        ...updates,
+        coins: (saveData.coins || 0) + reward.coins,
+        unlockedCosmetics: [...(saveData.unlockedCosmetics || []), reward.cosmetic],
+        unlockedTitles: [...(saveData.unlockedTitles || []), reward.title],
+      };
+      // Add XP separately to trigger level up checks
+      addXp(reward.xp);
+    }
+
+    updateSaveData(updates);
+    setActiveShard(null);
+  };
+
+  const handleCloseShard = () => {
+    setActiveShard(null);
+  };
+
   // Clear activeQuest when quest complete screen is dismissed
   useEffect(() => {
     if (screen === 'playing' && activeQuest) {
@@ -140,6 +215,9 @@ function App() {
 
       case 'nameSetup':
         return <NameSetup />;
+
+      case 'gradeLevelSetup':
+        return <GradeLevelPicker onComplete={() => setScreen('worldSelector')} />;
 
       case 'options':
         return <OptionsMenu />;
@@ -169,13 +247,31 @@ function App() {
             <WorldScene
               onStartQuest={handleStartQuest}
               onStartBoss={handleStartBoss}
-              isQuestActive={activeQuest !== null}
+              onOpenChest={handleOpenChest}
+              onCollectShard={handleCollectShard}
+              isQuestActive={activeQuest !== null || activeChest !== null || activeShard !== null}
             />
             <Hud />
             {activeQuest && screen !== 'questComplete' && (
               <QuestDialog
                 quest={activeQuest}
                 onClose={handleCloseQuest}
+              />
+            )}
+            {activeChest && (
+              <ChestPuzzle
+                chest={activeChest}
+                onSuccess={handleChestSuccess}
+                onClose={handleCloseChest}
+              />
+            )}
+            {activeShard && (
+              <ShardPuzzle
+                shard={activeShard}
+                worldId={activeShard.worldId}
+                collectedShardIds={saveData.collectedShardIds || []}
+                onSuccess={handleShardSuccess}
+                onClose={handleCloseShard}
               />
             )}
             {screen === 'questComplete' && <QuestComplete />}

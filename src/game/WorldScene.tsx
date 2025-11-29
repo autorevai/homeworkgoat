@@ -12,56 +12,101 @@ import { ForestGround } from './worlds/ForestGround';
 import { PlayerController } from './PlayerController';
 import { NPC } from './NPC';
 import { BossNPC } from './BossNPC';
+import { TreasureChest } from './TreasureChest';
+import { CrystalShard } from './CrystalShard';
 import { useGameState } from '../hooks/useGameState';
 import { getQuestsForWorld } from '../learning/quests';
 import { worlds } from '../worlds/worldDefinitions';
 import { getBossesForWorld } from '../conquest/bosses';
+import { getChestsForWorld } from '../exploration/treasureChests';
+import { getShardsForWorld } from '../exploration/crystalShards';
 import type { Quest } from '../learning/types';
 import type { BossBattle } from '../conquest/bosses';
+import type { TreasureChestDef, CrystalShardDef } from '../persistence/types';
 
 interface WorldSceneProps {
   onStartQuest: (quest: Quest) => void;
   onStartBoss: (boss: BossBattle) => void;
+  onOpenChest: (chest: TreasureChestDef) => void;
+  onCollectShard: (shard: CrystalShardDef) => void;
   isQuestActive: boolean;
 }
 
-// NPC positions per world
+// World size configuration - 40x40 playable area
+export const WORLD_BOUNDS = {
+  minX: -20,
+  maxX: 20,
+  minZ: -20,
+  maxZ: 20,
+};
+
+// NPC positions per world - spread across larger map
 const NPC_POSITIONS: Record<string, Record<string, [number, number, number]>> = {
   'world-school': {
-    'quest-power-crystals': [-5, 0, -5],
-    'quest-treasure-hunt': [5, 0, -5],
-    'quest-garden': [-7, 0, 3],
-    'quest-library': [7, 0, 3],
+    'quest-power-crystals': [-8, 0, -6],
+    'quest-treasure-hunt': [8, 0, -6],
+    'quest-garden': [-12, 0, 4],
+    'quest-library': [12, 0, 4],
+    'quest-robot-repair': [-4, 0, -12],
+    'quest-lunch-count': [4, 0, -12],
   },
   'world-forest': {
-    'quest-forest-path': [-6, 0, -4],
-    'quest-enchanted-grove': [6, 0, -4],
-    'quest-mushroom-ring': [0, 0, -8],
+    'quest-forest-path': [-10, 0, -5],
+    'quest-enchanted-grove': [10, 0, -5],
+    'quest-mushroom-ring': [0, 0, -10],
+    'quest-fairy-lights': [-14, 0, 2],
+    'quest-owl-wisdom': [14, 0, -8],
+    'quest-forest-guardian': [0, 0, -16],
+  },
+  'world-castle': {
+    'quest-royal-vault': [-8, 0, -8],
+    'quest-knight-training': [8, 0, -8],
+    'quest-wizard-potions': [-12, 0, 0],
+    'quest-dragon-eggs': [12, 0, -12],
   },
   'world-space': {
-    'quest-asteroid-belt': [-5, 0, -5],
-    'quest-lunar-base': [5, 0, -5],
+    'quest-asteroid-belt': [-10, 0, -6],
+    'quest-lunar-base': [10, 0, -6],
+    'quest-asteroid-count': [-6, 0, -14],
+    'quest-fuel-calculation': [6, 0, -14],
+    'quest-alien-decoder': [-14, 0, 0],
+    'quest-gravity-math': [14, 0, -10],
+  },
+  'world-underwater': {
+    'quest-pearl-counting': [-8, 0, -8],
+    'quest-treasure-dive': [8, 0, -8],
+    'quest-coral-calculation': [0, 0, -14],
+    'quest-whale-song': [-12, 0, 0],
   },
 };
 
-// Boss positions per world
+// Boss positions per world - at the far end of the map
 const BOSS_POSITIONS: Record<string, Record<string, [number, number, number]>> = {
   'world-school': {
-    'boss-multiplication-monster': [0, 0, -10],
+    'boss-multiplication-monster': [0, 0, -18],
   },
   'world-forest': {
-    'boss-forest-guardian': [0, 0, -12],
+    'boss-forest-guardian': [0, 0, -18],
+    'boss-tree-spirit': [-10, 0, -16],
+  },
+  'world-castle': {
+    'boss-math-dragon': [0, 0, -18],
   },
   'world-space': {
-    'boss-cosmic-calculator': [0, 0, -10],
+    'boss-cosmic-calculator': [0, 0, -18],
+  },
+  'world-underwater': {
+    'boss-kraken-king': [0, 0, -18],
   },
 };
 
-export function WorldScene({ onStartQuest, onStartBoss, isQuestActive }: WorldSceneProps) {
+export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectShard, isQuestActive }: WorldSceneProps) {
   const { saveData, currentWorldId } = useGameState();
   const [playerPosition, setPlayerPosition] = useState(new THREE.Vector3(0, 0, 8));
   const [nearbyQuest, setNearbyQuest] = useState<Quest | null>(null);
   const [nearbyBoss, setNearbyBoss] = useState<BossBattle | null>(null);
+  const [nearbyChest, setNearbyChest] = useState<TreasureChestDef | null>(null);
+  const [nearbyShard, setNearbyShard] = useState<CrystalShardDef | null>(null);
 
   // Get current world configuration
   const currentWorld = useMemo(() => {
@@ -75,6 +120,14 @@ export function WorldScene({ onStartQuest, onStartBoss, isQuestActive }: WorldSc
 
   const worldBosses = useMemo(() => {
     return getBossesForWorld(currentWorldId);
+  }, [currentWorldId]);
+
+  const worldChests = useMemo(() => {
+    return getChestsForWorld(currentWorldId);
+  }, [currentWorldId]);
+
+  const worldShards = useMemo(() => {
+    return getShardsForWorld(currentWorldId);
   }, [currentWorldId]);
 
   const npcPositions = NPC_POSITIONS[currentWorldId] || NPC_POSITIONS['world-school'];
@@ -94,18 +147,24 @@ export function WorldScene({ onStartQuest, onStartBoss, isQuestActive }: WorldSc
           onStartQuest(nearbyQuest);
         } else if (nearbyBoss) {
           onStartBoss(nearbyBoss);
+        } else if (nearbyChest && !saveData.openedChestIds?.includes(nearbyChest.id)) {
+          onOpenChest(nearbyChest);
+        } else if (nearbyShard && !saveData.collectedShardIds?.includes(nearbyShard.id)) {
+          onCollectShard(nearbyShard);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [nearbyQuest, nearbyBoss, onStartQuest, onStartBoss, isQuestActive]);
+  }, [nearbyQuest, nearbyBoss, nearbyChest, nearbyShard, onStartQuest, onStartBoss, onOpenChest, onCollectShard, isQuestActive, saveData.openedChestIds, saveData.collectedShardIds]);
 
-  // Check which NPC/Boss is nearby
+  // Check which NPC/Boss/Chest/Shard is nearby
   useEffect(() => {
     let closestQuest: Quest | null = null;
     let closestBoss: BossBattle | null = null;
+    let closestChest: TreasureChestDef | null = null;
+    let closestShard: CrystalShardDef | null = null;
     let closestDist = 3; // Interaction distance
 
     // Check quest NPCs
@@ -117,6 +176,8 @@ export function WorldScene({ onStartQuest, onStartBoss, isQuestActive }: WorldSc
       if (dist < closestDist) {
         closestQuest = quest;
         closestBoss = null;
+        closestChest = null;
+        closestShard = null;
         closestDist = dist;
       }
     }
@@ -130,13 +191,44 @@ export function WorldScene({ onStartQuest, onStartBoss, isQuestActive }: WorldSc
       if (dist < closestDist) {
         closestBoss = boss;
         closestQuest = null;
+        closestChest = null;
+        closestShard = null;
+        closestDist = dist;
+      }
+    }
+
+    // Check treasure chests
+    for (const chest of worldChests) {
+      const dist = playerPosition.distanceTo(new THREE.Vector3(...chest.position));
+      if (dist < closestDist) {
+        closestChest = chest;
+        closestQuest = null;
+        closestBoss = null;
+        closestShard = null;
+        closestDist = dist;
+      }
+    }
+
+    // Check crystal shards
+    for (const shard of worldShards) {
+      // Skip already collected shards
+      if (saveData.collectedShardIds?.includes(shard.id)) continue;
+
+      const dist = playerPosition.distanceTo(new THREE.Vector3(...shard.position));
+      if (dist < closestDist) {
+        closestShard = shard;
+        closestQuest = null;
+        closestBoss = null;
+        closestChest = null;
         closestDist = dist;
       }
     }
 
     setNearbyQuest(closestQuest);
     setNearbyBoss(closestBoss);
-  }, [playerPosition, worldQuests, worldBosses, npcPositions, bossPositions]);
+    setNearbyChest(closestChest);
+    setNearbyShard(closestShard);
+  }, [playerPosition, worldQuests, worldBosses, worldChests, worldShards, npcPositions, bossPositions, saveData.collectedShardIds]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -199,6 +291,28 @@ export function WorldScene({ onStartQuest, onStartBoss, isQuestActive }: WorldSc
             isDefeated={saveData.defeatedBossIds?.includes(boss.id) || false}
             onInteract={() => onStartBoss(boss)}
             playerPosition={playerPosition}
+          />
+        ))}
+
+        {/* Treasure Chests */}
+        {worldChests.map((chest) => (
+          <TreasureChest
+            key={chest.id}
+            chest={chest}
+            isOpened={saveData.openedChestIds?.includes(chest.id) || false}
+            playerPosition={playerPosition}
+            onInteract={() => onOpenChest(chest)}
+          />
+        ))}
+
+        {/* Crystal Shards */}
+        {worldShards.map((shard) => (
+          <CrystalShard
+            key={shard.id}
+            shard={shard}
+            isCollected={saveData.collectedShardIds?.includes(shard.id) || false}
+            playerPosition={playerPosition}
+            onInteract={() => onCollectShard(shard)}
           />
         ))}
       </Canvas>

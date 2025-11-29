@@ -29,6 +29,7 @@ export type GameScreen =
   | 'mainMenu'
   | 'avatarSetup'
   | 'nameSetup'
+  | 'gradeLevelSetup'
   | 'playing'
   | 'options'
   | 'questComplete'
@@ -86,6 +87,9 @@ interface GameState {
 
   // Adventure progress
   updateAdventureProgress: (skill: QuestionSkill, correct: boolean) => void;
+
+  // Generic save data update (for AI worlds, etc.)
+  updateSaveData: (updates: Partial<SaveData>) => void;
 }
 
 export const useGameState = create<GameState>((set, get) => ({
@@ -130,6 +134,9 @@ export const useGameState = create<GameState>((set, get) => ({
     }
     if (!saveData.unlockedTitles) {
       saveData.unlockedTitles = [];
+    }
+    if (!saveData.gradeLevel) {
+      saveData.gradeLevel = 3; // Default to 3rd grade
     }
 
     // Check if streak is broken
@@ -447,6 +454,14 @@ export const useGameState = create<GameState>((set, get) => ({
       },
     };
 
+    saveSaveData(newSaveData);
+    set({ saveData: newSaveData });
+  },
+
+  // Generic save data update for AI worlds and other extensions
+  updateSaveData: (updates: Partial<SaveData>) => {
+    const { saveData } = get();
+    const newSaveData = { ...saveData, ...updates };
     saveSaveData(newSaveData);
     set({ saveData: newSaveData });
   },

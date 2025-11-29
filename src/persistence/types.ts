@@ -3,10 +3,155 @@
  * Updated to support worlds, adventures, conquests, abilities, and daily challenges.
  */
 
-import type { LearningStats } from '../learning/types';
+import type { LearningStats, QuestionSkill, Question, Quest } from '../learning/types';
 import type { AdventureProgress } from '../adventure/paths';
 import type { AbilityState } from '../abilities/abilities';
 import type { DailyProgress } from '../daily/dailyChallenge';
+import type { World } from '../worlds/types';
+
+/**
+ * Grade level type (2nd through 6th grade)
+ */
+export type GradeLevel = 2 | 3 | 4 | 5 | 6;
+
+/**
+ * Grade level configuration
+ */
+export interface GradeLevelConfig {
+  level: GradeLevel;
+  name: string;
+  ageRange: string;
+  mathOperations: {
+    addition: { minNum: number; maxNum: number; multiDigit: boolean };
+    subtraction: { minNum: number; maxNum: number; multiDigit: boolean };
+    multiplication: { minNum: number; maxNum: number };
+    division: { minNum: number; maxNum: number };
+    wordProblems: { complexity: 'simple' | 'medium' | 'complex' };
+  };
+}
+
+/**
+ * Grade level configurations for difficulty scaling
+ */
+export const GRADE_CONFIGS: Record<GradeLevel, GradeLevelConfig> = {
+  2: {
+    level: 2,
+    name: '2nd Grade',
+    ageRange: '7-8',
+    mathOperations: {
+      addition: { minNum: 1, maxNum: 20, multiDigit: false },
+      subtraction: { minNum: 1, maxNum: 15, multiDigit: false },
+      multiplication: { minNum: 1, maxNum: 5 },
+      division: { minNum: 1, maxNum: 10 },
+      wordProblems: { complexity: 'simple' },
+    },
+  },
+  3: {
+    level: 3,
+    name: '3rd Grade',
+    ageRange: '8-9',
+    mathOperations: {
+      addition: { minNum: 1, maxNum: 100, multiDigit: true },
+      subtraction: { minNum: 1, maxNum: 50, multiDigit: true },
+      multiplication: { minNum: 1, maxNum: 10 },
+      division: { minNum: 1, maxNum: 50 },
+      wordProblems: { complexity: 'simple' },
+    },
+  },
+  4: {
+    level: 4,
+    name: '4th Grade',
+    ageRange: '9-10',
+    mathOperations: {
+      addition: { minNum: 10, maxNum: 500, multiDigit: true },
+      subtraction: { minNum: 10, maxNum: 200, multiDigit: true },
+      multiplication: { minNum: 2, maxNum: 12 },
+      division: { minNum: 2, maxNum: 100 },
+      wordProblems: { complexity: 'medium' },
+    },
+  },
+  5: {
+    level: 5,
+    name: '5th Grade',
+    ageRange: '10-11',
+    mathOperations: {
+      addition: { minNum: 50, maxNum: 1000, multiDigit: true },
+      subtraction: { minNum: 50, maxNum: 500, multiDigit: true },
+      multiplication: { minNum: 3, maxNum: 15 },
+      division: { minNum: 3, maxNum: 150 },
+      wordProblems: { complexity: 'medium' },
+    },
+  },
+  6: {
+    level: 6,
+    name: '6th Grade',
+    ageRange: '11-12',
+    mathOperations: {
+      addition: { minNum: 100, maxNum: 2000, multiDigit: true },
+      subtraction: { minNum: 100, maxNum: 1000, multiDigit: true },
+      multiplication: { minNum: 5, maxNum: 20 },
+      division: { minNum: 5, maxNum: 200 },
+      wordProblems: { complexity: 'complex' },
+    },
+  },
+};
+
+/**
+ * AI-Generated World Bundle
+ * Contains everything needed to play a generated world
+ */
+export interface GeneratedWorldData {
+  world: World;
+  quests: Quest[];
+  questions: Question[];
+
+  // Metadata for AI improvement
+  generatedAt: number;
+  playerProfileUsed: {
+    level: number;
+    weakSkills: QuestionSkill[];
+    strongSkills: QuestionSkill[];
+    averageMastery: number;
+  };
+}
+
+/**
+ * Analytics for AI-generated question performance
+ * Used to improve AI prompt and difficulty scaling
+ */
+export interface AIQuestionAnalytics {
+  questionId: string;
+  worldId: string;
+  skill: QuestionSkill;
+  difficulty: 'easy' | 'medium';
+  commonCoreStandard?: string;
+
+  // Performance data
+  wasCorrect: boolean;
+  timeToAnswerMs: number;
+  hintUsed: boolean;
+  attemptNumber: number; // 1st try, 2nd try, etc.
+
+  // Context
+  playerLevel: number;
+  playerMasteryAtTime: number;
+  timestamp: number;
+}
+
+/**
+ * Summary of AI world completion
+ */
+export interface AIWorldCompletion {
+  worldId: string;
+  worldName: string;
+  completedAt: number;
+  questsCompleted: number;
+  totalQuests: number;
+  questionsCorrect: number;
+  totalQuestions: number;
+  averageTimePerQuestion: number;
+  hintsUsed: number;
+}
 
 export interface AvatarConfig {
   hairColor: string;
@@ -65,6 +210,36 @@ export const ACCESSORIES: Array<{ id: AvatarConfig['accessory']; label: string; 
   { id: 'wizard-hat', label: 'Wizard Hat', emoji: '🧙' },
 ];
 
+/**
+ * Treasure Chest types
+ */
+export type ChestRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+export interface TreasureChestReward {
+  xp: number;
+  coins?: number;
+  cosmetic?: string;
+}
+
+export interface TreasureChestDef {
+  id: string;
+  worldId: string;
+  position: [number, number, number];
+  rarity: ChestRarity;
+  rewards: TreasureChestReward;
+}
+
+/**
+ * Crystal Shard types
+ */
+export interface CrystalShardDef {
+  id: string;
+  worldId: string;
+  position: [number, number, number];
+  color: string;
+  secretAreaId?: string; // Optional secret area unlocked by collecting all shards
+}
+
 export interface SaveData {
   // Version for migration support
   saveVersion: number;
@@ -72,22 +247,34 @@ export interface SaveData {
   // Player identity
   playerName: string;
   avatarConfig: AvatarConfig;
+  gradeLevel: GradeLevel; // Player's grade level for difficulty scaling
 
   // Core progression
   xp: number;
+  coins: number; // Currency for cosmetics
   completedQuestIds: string[];
   defeatedBossIds: string[];
+
+  // Exploration progress
+  openedChestIds: string[];
+  collectedShardIds: string[];
 
   // World system
   currentWorldId: string;
   unlockedWorldIds: string[];
+
+  // AI-Generated Worlds (cached locally, max 5)
+  generatedWorlds: GeneratedWorldData[];
+
+  // AI World History (for analytics - stored in Firestore too)
+  aiWorldHistory: AIWorldCompletion[];
 
   // Adventure paths (skill trees)
   adventureProgress: Record<string, AdventureProgress>;
 
   // Abilities
   abilityStates: Record<string, AbilityState>;
-  
+
   // Daily challenges
   dailyProgress: DailyProgress;
 
@@ -115,7 +302,7 @@ export interface SaveData {
 }
 
 // Current save version - increment when making breaking changes
-export const CURRENT_SAVE_VERSION = 2;
+export const CURRENT_SAVE_VERSION = 5;
 
 /**
  * Create default save data for new players
@@ -125,11 +312,17 @@ export function createDefaultSaveData(): SaveData {
     saveVersion: CURRENT_SAVE_VERSION,
     playerName: '',
     avatarConfig: { ...DEFAULT_AVATAR },
+    gradeLevel: 3, // Default to 3rd grade
     xp: 0,
+    coins: 0,
     completedQuestIds: [],
     defeatedBossIds: [],
+    openedChestIds: [],
+    collectedShardIds: [],
     currentWorldId: 'world-school',
     unlockedWorldIds: ['world-school'],
+    generatedWorlds: [],
+    aiWorldHistory: [],
     adventureProgress: {},
     abilityStates: {},
     dailyProgress: {
@@ -168,12 +361,12 @@ export function createDefaultSaveData(): SaveData {
 export function migrateSaveData(oldData: Partial<SaveData>): SaveData {
   const defaults = createDefaultSaveData();
 
-  // Version 1 -> 2: Add new fields
+  // Version 1 -> 2 -> 3 -> 4: Add new fields progressively
   const migrated: SaveData = {
     ...defaults,
     ...oldData,
     saveVersion: CURRENT_SAVE_VERSION,
-    
+
     // Ensure new fields exist
     defeatedBossIds: oldData.defeatedBossIds || [],
     currentWorldId: oldData.currentWorldId || 'world-school',
@@ -186,6 +379,18 @@ export function migrateSaveData(oldData: Partial<SaveData>): SaveData {
     equippedTitle: oldData.equippedTitle || null,
     audioEnabled: oldData.audioEnabled ?? true,
     autoReadQuestions: oldData.autoReadQuestions ?? false,
+
+    // Version 3: AI-generated worlds
+    generatedWorlds: oldData.generatedWorlds || [],
+    aiWorldHistory: oldData.aiWorldHistory || [],
+
+    // Version 4: Exploration (treasure chests & crystal shards)
+    coins: oldData.coins || 0,
+    openedChestIds: oldData.openedChestIds || [],
+    collectedShardIds: oldData.collectedShardIds || [],
+
+    // Version 5: Grade level for difficulty scaling
+    gradeLevel: oldData.gradeLevel || 3,
   };
 
   return migrated;

@@ -29,7 +29,8 @@ export function NameSetup() {
     }
 
     updatePlayerName(trimmedName);
-    setScreen('playing');
+    // Move to grade level selection after name setup
+    setScreen('gradeLevelSetup');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -144,7 +145,7 @@ export function NameSetup() {
             onClick={handleSubmit}
             style={{ flex: 2 }}
           >
-            Start Adventure! 🚀
+            Continue →
           </button>
         </div>
       </div>

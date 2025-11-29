@@ -3,13 +3,41 @@
  * Epic boss fight UI with multi-phase battles and dramatic presentation.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useGameState } from '../hooks/useGameState';
 import type { BossBattle as BossBattleType } from '../conquest/bosses';
 import { getCurrentBossPhase, calculateBossDamage, getDifficultyInfo } from '../conquest/bosses';
 import { getQuestionsByIds } from '../learning/questions';
 import type { Question } from '../learning/types';
 import { SpeakerButton } from './SpeakerButton';
+
+/**
+ * Speed bonus tiers for answering questions quickly
+ */
+interface SpeedTier {
+  name: string;
+  multiplier: number;
+  color: string;
+  emoji: string;
+  maxTime: number; // in seconds
+}
+
+const SPEED_TIERS: SpeedTier[] = [
+  { name: 'LEGENDARY', multiplier: 2.0, color: '#FFD700', emoji: '⚡', maxTime: 3 },
+  { name: 'EPIC', multiplier: 1.5, color: '#9C27B0', emoji: '🔥', maxTime: 5 },
+  { name: 'GREAT', multiplier: 1.25, color: '#2196F3', emoji: '💨', maxTime: 10 },
+  { name: 'GOOD', multiplier: 1.0, color: '#4CAF50', emoji: '✓', maxTime: 20 },
+  { name: 'SLOW', multiplier: 0.75, color: '#FF9800', emoji: '🐢', maxTime: Infinity },
+];
+
+function getSpeedTier(timeSeconds: number): SpeedTier {
+  for (const tier of SPEED_TIERS) {
+    if (timeSeconds < tier.maxTime) {
+      return tier;
+    }
+  }
+  return SPEED_TIERS[SPEED_TIERS.length - 1];
+}
 
 interface BossBattleProps {
   boss: BossBattleType;
@@ -29,6 +57,13 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(boss.timeLimit || 0);
   const [currentDialogue, setCurrentDialogue] = useState('');
+
+  // Speed bonus tracking
+  const [questionStartTime, setQuestionStartTime] = useState<number>(0);
+  const [questionElapsed, setQuestionElapsed] = useState<number>(0);
+  const [lastSpeedTier, setLastSpeedTier] = useState<SpeedTier | null>(null);
+  const [totalDamageDealt, setTotalDamageDealt] = useState(0);
+  const questionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const damagePerHit = calculateBossDamage(boss);
   const currentBossPhase = getCurrentBossPhase(boss, bossHealth);
@@ -74,6 +109,34 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
     setCurrentDialogue(currentBossPhase.dialogue);
   }, [currentBossPhase.name]);
 
+  // Per-question timer - starts when question changes, stops on feedback
+  useEffect(() => {
+    if (battlePhase !== 'fighting' || showFeedback) {
+      // Clear timer when not actively answering
+      if (questionTimerRef.current) {
+        clearInterval(questionTimerRef.current);
+        questionTimerRef.current = null;
+      }
+      return;
+    }
+
+    // Start fresh timer for new question
+    const startTime = Date.now();
+    setQuestionStartTime(startTime);
+    setQuestionElapsed(0);
+
+    questionTimerRef.current = setInterval(() => {
+      setQuestionElapsed((Date.now() - startTime) / 1000);
+    }, 100);
+
+    return () => {
+      if (questionTimerRef.current) {
+        clearInterval(questionTimerRef.current);
+        questionTimerRef.current = null;
+      }
+    };
+  }, [battlePhase, currentQuestionIndex, showFeedback]);
+
   const startBattle = useCallback(() => {
     setBattlePhase('fighting');
     setCurrentDialogue(boss.phases[0].dialogue);
@@ -86,6 +149,11 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
       const currentQuestion = questions[currentQuestionIndex];
       const isCorrect = answerIndex === currentQuestion.correctIndex;
 
+      // Calculate time taken and speed tier
+      const timeTaken = (Date.now() - questionStartTime) / 1000;
+      const speedTier = getSpeedTier(timeTaken);
+      setLastSpeedTier(speedTier);
+
       setLastAnswerCorrect(isCorrect);
       setShowFeedback(true);
 
@@ -95,7 +163,12 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
 
       if (isCorrect) {
         setCorrectCount((prev) => prev + 1);
-        const newHealth = Math.max(0, bossHealth - damagePerHit);
+
+        // Apply speed multiplier to damage
+        const speedDamage = Math.ceil(damagePerHit * speedTier.multiplier);
+        setTotalDamageDealt((prev) => prev + speedDamage);
+
+        const newHealth = Math.max(0, bossHealth - speedDamage);
         setBossHealth(newHealth);
 
         if (newHealth <= 0) {
@@ -111,6 +184,7 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
       // Move to next question after feedback
       setTimeout(() => {
         setShowFeedback(false);
+        setLastSpeedTier(null);
         if (currentQuestionIndex < questions.length - 1) {
           setCurrentQuestionIndex((prev) => prev + 1);
         } else {
@@ -121,13 +195,14 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             setBattlePhase('defeat');
           }
         }
-      }, 1500);
+      }, 1800); // Slightly longer to show speed bonus
     },
     [
       showFeedback,
       battlePhase,
       questions,
       currentQuestionIndex,
+      questionStartTime,
       bossHealth,
       damagePerHit,
       recordAnswer,
@@ -330,12 +405,74 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
               position: 'relative',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
               <span style={{ color: '#888' }}>
                 Question {currentQuestionIndex + 1} of {questions.length}
               </span>
               <span style={{ color: '#4CAF50' }}>{correctCount} hits</span>
             </div>
+
+            {/* Speed Timer Bar */}
+            {!showFeedback && (
+              <div
+                style={{
+                  marginBottom: '15px',
+                  position: 'relative',
+                }}
+              >
+                <div
+                  style={{
+                    height: '8px',
+                    background: 'rgba(0,0,0,0.3)',
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${Math.max(0, 100 - (questionElapsed / 20) * 100)}%`,
+                      background: questionElapsed < 3
+                        ? 'linear-gradient(90deg, #FFD700, #FFA500)'
+                        : questionElapsed < 5
+                        ? 'linear-gradient(90deg, #9C27B0, #E040FB)'
+                        : questionElapsed < 10
+                        ? 'linear-gradient(90deg, #2196F3, #03A9F4)'
+                        : questionElapsed < 20
+                        ? 'linear-gradient(90deg, #4CAF50, #8BC34A)'
+                        : 'linear-gradient(90deg, #FF9800, #FF5722)',
+                      transition: 'width 0.1s linear',
+                      boxShadow: questionElapsed < 3
+                        ? '0 0 10px #FFD700'
+                        : questionElapsed < 5
+                        ? '0 0 8px #9C27B0'
+                        : 'none',
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: '4px',
+                    fontSize: '11px',
+                    color: '#666',
+                  }}
+                >
+                  <span
+                    style={{
+                      color: questionElapsed < 3 ? '#FFD700' : '#666',
+                      fontWeight: questionElapsed < 3 ? 'bold' : 'normal',
+                    }}
+                  >
+                    {questionElapsed < 3 ? '⚡ LEGENDARY!' : questionElapsed < 5 ? '🔥 EPIC!' : questionElapsed < 10 ? '💨 Great!' : ''}
+                  </span>
+                  <span style={{ color: questionElapsed < 5 ? '#FFD700' : '#888' }}>
+                    {questionElapsed.toFixed(1)}s
+                  </span>
+                </div>
+              </div>
+            )}
             <p
               style={{
                 fontSize: '24px',
@@ -388,21 +525,67 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             </div>
           </div>
 
-          {/* Feedback */}
+          {/* Feedback with Speed Bonus */}
           {showFeedback && (
             <div
               className="animate-fade-in"
               style={{
                 textAlign: 'center',
-                padding: '15px',
-                background: lastAnswerCorrect ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)',
+                padding: '20px',
+                background: lastAnswerCorrect
+                  ? `linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, ${lastSpeedTier ? lastSpeedTier.color + '33' : 'rgba(76, 175, 80, 0.2)'} 100%)`
+                  : 'rgba(244, 67, 54, 0.2)',
                 borderRadius: '12px',
+                border: lastAnswerCorrect && lastSpeedTier && lastSpeedTier.multiplier > 1
+                  ? `2px solid ${lastSpeedTier.color}`
+                  : 'none',
               }}
             >
-              <span style={{ fontSize: '32px' }}>{lastAnswerCorrect ? '💥' : '🛡️'}</span>
-              <p style={{ margin: '10px 0 0 0', color: lastAnswerCorrect ? '#4CAF50' : '#f44336' }}>
-                {lastAnswerCorrect ? `Critical Hit! -${damagePerHit} HP` : 'The boss blocked your attack!'}
-              </p>
+              {lastAnswerCorrect && lastSpeedTier ? (
+                <>
+                  {/* Speed tier banner */}
+                  {lastSpeedTier.multiplier > 1 && (
+                    <div
+                      style={{
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        color: lastSpeedTier.color,
+                        textTransform: 'uppercase',
+                        letterSpacing: '2px',
+                        marginBottom: '8px',
+                        textShadow: `0 0 10px ${lastSpeedTier.color}`,
+                      }}
+                    >
+                      {lastSpeedTier.emoji} {lastSpeedTier.name} SPEED {lastSpeedTier.emoji}
+                    </div>
+                  )}
+                  <span style={{ fontSize: '40px' }}>
+                    {lastSpeedTier.multiplier >= 2 ? '⚡💥⚡' : lastSpeedTier.multiplier >= 1.5 ? '🔥💥🔥' : '💥'}
+                  </span>
+                  <p
+                    style={{
+                      margin: '10px 0 0 0',
+                      color: lastSpeedTier.color,
+                      fontSize: lastSpeedTier.multiplier > 1 ? '20px' : '16px',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    -{Math.ceil(damagePerHit * lastSpeedTier.multiplier)} HP
+                    {lastSpeedTier.multiplier > 1 && (
+                      <span style={{ fontSize: '14px', marginLeft: '8px', opacity: 0.8 }}>
+                        ({lastSpeedTier.multiplier}x damage!)
+                      </span>
+                    )}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: '32px' }}>🛡️</span>
+                  <p style={{ margin: '10px 0 0 0', color: '#f44336' }}>
+                    The boss blocked your attack!
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -434,6 +617,11 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             }}
           >
             <p style={{ color: '#FFD700', fontSize: '24px', margin: 0 }}>+{boss.rewards.xp} XP</p>
+            {totalDamageDealt > 100 && (
+              <p style={{ color: '#9C27B0', marginTop: '10px', fontSize: '14px' }}>
+                Total Damage: {totalDamageDealt} (Speed Bonus Active!)
+              </p>
+            )}
             {boss.rewards.title && (
               <p style={{ color: '#b8b8b8', marginTop: '10px' }}>New Title: {boss.rewards.title}</p>
             )}
@@ -484,6 +672,19 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
           @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes speedPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+          }
+          @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
           }
         `}
       </style>

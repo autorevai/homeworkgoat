@@ -1,18 +1,20 @@
 /**
  * Procedural Question Generator
- * 
+ *
  * Generates unlimited questions dynamically so we never run out!
  * This is how Prodigy does it - they don't have a fixed question bank.
- * 
- * Grade Level: 3rd Grade (adjustable)
- * - Addition: up to 1,000
- * - Subtraction: up to 1,000 with regrouping
- * - Multiplication: 0-12 tables
- * - Division: 0-12 tables
- * - Word Problems: Real-world contexts
+ *
+ * Now supports grade-level-based difficulty scaling (2nd-6th grade):
+ * - 2nd Grade: Single digits, simple operations
+ * - 3rd Grade: Multi-digit, times tables
+ * - 4th Grade: Larger numbers, fractions intro
+ * - 5th Grade: Decimals, complex word problems
+ * - 6th Grade: Pre-algebra, advanced ratios
  */
 
 import type { Question, QuestionSkill, Difficulty } from './types';
+import type { GradeLevel } from '../persistence/types';
+import { GRADE_CONFIGS } from '../persistence/types';
 
 // Helper to shuffle array
 function shuffle<T>(array: T[]): T[] {
@@ -362,14 +364,234 @@ export function generateQuestQuestions(
   difficulty: Difficulty | 'mixed' = 'mixed'
 ): Question[] {
   const questions: Question[] = [];
-  
+
   for (let i = 0; i < count; i++) {
     const skill = skills[i % skills.length];
-    const diff = difficulty === 'mixed' 
-      ? (Math.random() < 0.6 ? 'easy' : 'medium') 
+    const diff = difficulty === 'mixed'
+      ? (Math.random() < 0.6 ? 'easy' : 'medium')
       : difficulty;
     questions.push(generateQuestion(skill, diff));
   }
-  
+
+  return shuffle(questions);
+}
+
+// =====================================================
+// GRADE-LEVEL-AWARE QUESTION GENERATORS
+// =====================================================
+
+/**
+ * Generate an addition question appropriate for the given grade level
+ */
+export function generateGradeAddition(gradeLevel: GradeLevel, difficulty: Difficulty): Question {
+  const config = GRADE_CONFIGS[gradeLevel].mathOperations.addition;
+  let a: number, b: number, hint: string;
+
+  if (difficulty === 'easy') {
+    // Easier end of the grade level range
+    const range = Math.floor((config.maxNum - config.minNum) / 2);
+    a = Math.floor(Math.random() * range) + config.minNum;
+    b = Math.floor(Math.random() * range) + config.minNum;
+  } else {
+    // Harder end - full range
+    a = Math.floor(Math.random() * (config.maxNum - config.minNum)) + config.minNum;
+    b = Math.floor(Math.random() * (config.maxNum - config.minNum) / 2) + config.minNum;
+  }
+
+  // Grade-appropriate hints
+  if (gradeLevel === 2) {
+    hint = `Count on your fingers starting from ${Math.max(a, b)}!`;
+  } else if (config.multiDigit) {
+    hint = `Add the ones first (${a % 10} + ${b % 10}), then the tens!`;
+  } else {
+    hint = `Start at ${a} and count up ${b}!`;
+  }
+
+  const correct = a + b;
+  const wrong = generateWrongAnswers(correct);
+  const choices = shuffle([correct, ...wrong]);
+
+  return {
+    id: `gen-add-g${gradeLevel}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    prompt: `What is ${a} + ${b}?`,
+    choices,
+    correctIndex: choices.indexOf(correct),
+    skill: 'addition',
+    difficulty,
+    hint,
+  };
+}
+
+/**
+ * Generate a subtraction question appropriate for the given grade level
+ */
+export function generateGradeSubtraction(gradeLevel: GradeLevel, difficulty: Difficulty): Question {
+  const config = GRADE_CONFIGS[gradeLevel].mathOperations.subtraction;
+  let a: number, b: number, hint: string;
+
+  if (difficulty === 'easy') {
+    const range = Math.floor((config.maxNum - config.minNum) / 2);
+    a = Math.floor(Math.random() * range) + config.minNum + range;
+    b = Math.floor(Math.random() * (a / 2)) + config.minNum;
+  } else {
+    a = Math.floor(Math.random() * (config.maxNum - config.minNum)) + config.minNum;
+    b = Math.floor(Math.random() * (a * 0.6)) + config.minNum;
+  }
+
+  // Ensure a > b
+  if (b >= a) {
+    a = b + Math.floor(Math.random() * 20) + 5;
+  }
+
+  if (gradeLevel === 2) {
+    hint = `Start at ${a} and count back ${b}!`;
+  } else if (config.multiDigit) {
+    hint = `${a} - ${Math.round(b / 10) * 10} = ${a - Math.round(b / 10) * 10}, then subtract the ones!`;
+  } else {
+    hint = `How many more is ${a} than ${b}?`;
+  }
+
+  const correct = a - b;
+  const wrong = generateWrongAnswers(correct);
+  const choices = shuffle([correct, ...wrong]);
+
+  return {
+    id: `gen-sub-g${gradeLevel}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    prompt: `What is ${a} - ${b}?`,
+    choices,
+    correctIndex: choices.indexOf(correct),
+    skill: 'subtraction',
+    difficulty,
+    hint,
+  };
+}
+
+/**
+ * Generate a multiplication question appropriate for the given grade level
+ */
+export function generateGradeMultiplication(gradeLevel: GradeLevel, difficulty: Difficulty): Question {
+  const config = GRADE_CONFIGS[gradeLevel].mathOperations.multiplication;
+  let a: number, b: number, hint: string;
+
+  if (difficulty === 'easy') {
+    // Easier facts
+    a = Math.floor(Math.random() * Math.min(5, config.maxNum - config.minNum)) + config.minNum;
+    b = Math.floor(Math.random() * Math.min(5, config.maxNum - config.minNum)) + config.minNum;
+  } else {
+    a = Math.floor(Math.random() * (config.maxNum - config.minNum)) + config.minNum;
+    b = Math.floor(Math.random() * (config.maxNum - config.minNum)) + config.minNum;
+  }
+
+  // Grade-appropriate hints
+  if (gradeLevel === 2) {
+    hint = `Think of ${a} groups of ${b}!`;
+  } else if (a === 9 || b === 9) {
+    const other = a === 9 ? b : a;
+    hint = `9 trick: 10 × ${other} - ${other} = ?`;
+  } else {
+    hint = `Skip count by ${a}: ${Array.from({ length: Math.min(b, 5) }, (_, i) => a * (i + 1)).join(', ')}...`;
+  }
+
+  const correct = a * b;
+  const wrong = generateWrongAnswers(correct);
+  const choices = shuffle([correct, ...wrong]);
+
+  return {
+    id: `gen-mult-g${gradeLevel}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    prompt: `What is ${a} × ${b}?`,
+    choices,
+    correctIndex: choices.indexOf(correct),
+    skill: 'multiplication',
+    difficulty,
+    hint,
+  };
+}
+
+/**
+ * Generate a division question appropriate for the given grade level
+ */
+export function generateGradeDivision(gradeLevel: GradeLevel, difficulty: Difficulty): Question {
+  const config = GRADE_CONFIGS[gradeLevel].mathOperations.division;
+  let divisor: number, quotient: number, hint: string;
+
+  if (difficulty === 'easy') {
+    divisor = Math.floor(Math.random() * 4) + 2;
+    quotient = Math.floor(Math.random() * 6) + 2;
+  } else {
+    divisor = Math.floor(Math.random() * (config.maxNum > 100 ? 8 : 5)) + 3;
+    quotient = Math.floor(Math.random() * 8) + 4;
+  }
+
+  // Cap based on grade level
+  if (divisor * quotient > config.maxNum) {
+    quotient = Math.floor(config.maxNum / divisor);
+    if (quotient < 2) quotient = 2;
+  }
+
+  const dividend = divisor * quotient;
+
+  if (gradeLevel === 2) {
+    hint = `How many groups of ${divisor} fit in ${dividend}?`;
+  } else {
+    hint = `Think: ${divisor} × ? = ${dividend}`;
+  }
+
+  const correct = quotient;
+  const wrong = generateWrongAnswers(correct);
+  const choices = shuffle([correct, ...wrong]);
+
+  return {
+    id: `gen-div-g${gradeLevel}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    prompt: `What is ${dividend} ÷ ${divisor}?`,
+    choices,
+    correctIndex: choices.indexOf(correct),
+    skill: 'division',
+    difficulty,
+    hint,
+  };
+}
+
+/**
+ * Generate a question for a specific skill and grade level
+ */
+export function generateGradeQuestion(
+  skill: QuestionSkill,
+  gradeLevel: GradeLevel,
+  difficulty: Difficulty
+): Question {
+  switch (skill) {
+    case 'addition':
+      return generateGradeAddition(gradeLevel, difficulty);
+    case 'subtraction':
+      return generateGradeSubtraction(gradeLevel, difficulty);
+    case 'multiplication':
+      return generateGradeMultiplication(gradeLevel, difficulty);
+    case 'division':
+      return generateGradeDivision(gradeLevel, difficulty);
+    case 'wordProblem':
+      // Word problems use existing generator with difficulty based on grade
+      return generateWordProblem(gradeLevel <= 3 ? 'easy' : 'medium');
+    default:
+      return generateGradeAddition(gradeLevel, difficulty);
+  }
+}
+
+/**
+ * Generate a batch of grade-appropriate questions
+ */
+export function generateGradeQuestQuestions(
+  count: number,
+  gradeLevel: GradeLevel,
+  skills: QuestionSkill[] = ['addition', 'subtraction', 'multiplication', 'division', 'wordProblem'],
+  difficulty: Difficulty | 'mixed' = 'mixed'
+): Question[] {
+  const questions: Question[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const skill = skills[i % skills.length];
+    const diff = difficulty === 'mixed' ? (Math.random() < 0.6 ? 'easy' : 'medium') : difficulty;
+    questions.push(generateGradeQuestion(skill, gradeLevel, diff));
+  }
+
   return shuffle(questions);
 }
