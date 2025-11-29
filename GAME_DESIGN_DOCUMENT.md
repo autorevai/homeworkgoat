@@ -456,7 +456,7 @@ interface GameTestAPI {
 
 ### Sprint 3: Tutorial & Polish (Current)
 1. [ ] Interactive tutorial system
-2. [ ] Agent testing interface
+2. [✅] Agent testing interface (window.gameTestAPI)
 3. [ ] Achievement system
 4. [ ] Sound effects
 
@@ -478,6 +478,12 @@ interface GameTestAPI {
 ---
 
 ## Changelog
+
+### v2.2 - November 29, 2024
+- Implemented Agent Testing Interface (window.gameTestAPI)
+- Fixed map boundary issues - full 40x40 map now accessible
+- Added TTS math symbol conversion (× → "times")
+- Fixed tooltip overlay on puzzle modals
 
 ### v2.1 - November 29, 2024
 - Added grade level picker (2nd-6th grade) to onboarding flow
