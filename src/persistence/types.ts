@@ -299,6 +299,13 @@ export interface SaveData {
   // Tutorial state
   tutorialCompleted: boolean;
 
+  // Achievement tracking
+  unlockedAchievementIds: string[];
+  achievementStats: {
+    speedBonuses: number;
+    perfectQuests: number;
+  };
+
   // Timestamps
   createdAt: number;
   lastPlayedAt: number;
@@ -354,6 +361,11 @@ export function createDefaultSaveData(): SaveData {
     audioEnabled: true,
     autoReadQuestions: false,
     tutorialCompleted: false,
+    unlockedAchievementIds: [],
+    achievementStats: {
+      speedBonuses: 0,
+      perfectQuests: 0,
+    },
     createdAt: Date.now(),
     lastPlayedAt: Date.now(),
   };
@@ -398,6 +410,13 @@ export function migrateSaveData(oldData: Partial<SaveData>): SaveData {
 
     // Version 6: Tutorial state
     tutorialCompleted: oldData.tutorialCompleted ?? false,
+
+    // Version 7: Achievements
+    unlockedAchievementIds: oldData.unlockedAchievementIds || [],
+    achievementStats: oldData.achievementStats || {
+      speedBonuses: 0,
+      perfectQuests: 0,
+    },
   };
 
   return migrated;

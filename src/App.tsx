@@ -22,6 +22,8 @@ import { ChestPuzzle } from './ui/ChestPuzzle';
 import { ShardPuzzle } from './ui/ShardPuzzle';
 import { Tutorial, useTutorial } from './ui/Tutorial';
 import { ErrorBoundary, GameErrorBoundary } from './ui/ErrorBoundary';
+import { AchievementQueue } from './ui/AchievementPopup';
+import { useAchievements } from './hooks/useAchievements';
 import { initAnalytics } from './firebase/config';
 import { initializeGameTestAPI } from './testing/agentTestAPI';
 import type { Quest } from './learning/types';
@@ -85,6 +87,7 @@ function App() {
   const [activeChest, setActiveChest] = useState<TreasureChestDef | null>(null);
   const [activeShard, setActiveShard] = useState<CrystalShardDef | null>(null);
   const { showTutorial, completeTutorial, skipTutorial } = useTutorial();
+  const { pendingAchievements, checkAndUnlockAchievements, clearPendingAchievements } = useAchievements();
 
   // Initialize Firebase Analytics, Auth, and Test API on mount
   useEffect(() => {
@@ -152,6 +155,9 @@ function App() {
 
     updateSaveData(updates);
     setActiveChest(null);
+
+    // Check for achievements after opening chest
+    setTimeout(() => checkAndUnlockAchievements(), 100);
   };
 
   const handleCloseChest = () => {
@@ -191,6 +197,9 @@ function App() {
 
     updateSaveData(updates);
     setActiveShard(null);
+
+    // Check for achievements after collecting shard
+    setTimeout(() => checkAndUnlockAchievements(), 100);
   };
 
   const handleCloseShard = () => {
@@ -331,6 +340,12 @@ function App() {
     <ErrorBoundary>
       <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
         {renderScreen()}
+        {pendingAchievements.length > 0 && (
+          <AchievementQueue
+            achievements={pendingAchievements}
+            onAllDismissed={clearPendingAchievements}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

@@ -20,7 +20,7 @@ interface CrystalShardProps {
 
 export function CrystalShard({ shard, isCollected, playerPosition, onInteract, hideTooltip }: CrystalShardProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const [hoverPulse, setHoverPulse] = useState(0);
+  const [hoverPulse, setHoverPulse] = useState(1);
 
   const colorKey = shard.color as CrystalColor;
   const crystalColor = CRYSTAL_COLORS[colorKey] || CRYSTAL_COLORS.blue;
@@ -30,14 +30,10 @@ export function CrystalShard({ shard, isCollected, playerPosition, onInteract, h
   const distance = playerPosition.distanceTo(position);
   const isNearby = distance < 3;
 
-  // Don't render if already collected
-  if (isCollected) {
-    return null;
-  }
-
-  // Animate crystal floating and rotating
+  // Animate crystal floating and rotating - must be called before any early return
   useFrame((state) => {
-    if (!groupRef.current) return;
+    // Skip animation if collected or ref not available
+    if (isCollected || !groupRef.current) return;
 
     const time = state.clock.getElapsedTime();
 
@@ -50,6 +46,11 @@ export function CrystalShard({ shard, isCollected, playerPosition, onInteract, h
     // Pulse effect when nearby
     setHoverPulse(isNearby ? Math.sin(time * 4) * 0.2 + 1.2 : 1);
   });
+
+  // Don't render if already collected
+  if (isCollected) {
+    return null;
+  }
 
   return (
     <group ref={groupRef} position={[shard.position[0], shard.position[1] + 0.5, shard.position[2]]}>
