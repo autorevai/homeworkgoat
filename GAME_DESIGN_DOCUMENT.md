@@ -1,8 +1,8 @@
 # Homework GOAT - Game Design Document
 
-**Version:** 2.1
+**Version:** 2.4
 **Last Updated:** November 29, 2024
-**Status:** Sprint 2 Complete - In Active Development
+**Status:** Sprint 3 Nearly Complete - Sound Effects Remaining
 
 ---
 
@@ -242,10 +242,12 @@ Each world is a 40x40 unit playable area with:
 |---------|--------|----------|
 | Grade Level Picker | [✅] | HIGH |
 | Adaptive Difficulty | [✅] | HIGH |
-| Achievement System | [ ] | MEDIUM |
+| Achievement System | [✅] | MEDIUM |
 | Sound Effects | [ ] | MEDIUM |
 | Music | [ ] | MEDIUM |
-| Tutorials | [ ] | HIGH |
+| Tutorials | [✅] | HIGH |
+| World Complete Popup | [✅] | MEDIUM |
+| Error Boundaries | [✅] | HIGH |
 
 ---
 

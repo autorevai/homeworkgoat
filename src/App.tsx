@@ -23,6 +23,7 @@ import { ShardPuzzle } from './ui/ShardPuzzle';
 import { Tutorial, useTutorial } from './ui/Tutorial';
 import { ErrorBoundary, GameErrorBoundary } from './ui/ErrorBoundary';
 import { AchievementQueue } from './ui/AchievementPopup';
+import { WorldCompletePopup } from './ui/WorldCompletePopup';
 import { useAchievements } from './hooks/useAchievements';
 import { initAnalytics } from './firebase/config';
 import { initializeGameTestAPI } from './testing/agentTestAPI';
@@ -30,6 +31,7 @@ import type { Quest } from './learning/types';
 import type { BossBattle as BossBattleType } from './conquest/bosses';
 import type { TreasureChestDef, CrystalShardDef } from './persistence/types';
 import { areAllShardsCollected, getShardCollectionReward } from './exploration/crystalShards';
+import { worlds, getWorldById } from './worlds/worldDefinitions';
 
 function LoadingScreen() {
   return (
@@ -79,13 +81,15 @@ function LoadingScreen() {
 }
 
 function App() {
-  const { screen, initialize, setScreen, setCurrentWorld, addXp, updateSaveData, saveData } = useGameState();
+  const { screen, initialize, setScreen, setCurrentWorld, addXp, updateSaveData, saveData, currentWorldId, unlockWorld } = useGameState();
   const { endQuest } = useQuestRunner();
   const { signIn } = useAuth();
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossBattleType | null>(null);
   const [activeChest, setActiveChest] = useState<TreasureChestDef | null>(null);
   const [activeShard, setActiveShard] = useState<CrystalShardDef | null>(null);
+  const [showWorldComplete, setShowWorldComplete] = useState(false);
+  const [completedWorldId, setCompletedWorldId] = useState<string | null>(null);
   const { showTutorial, completeTutorial, skipTutorial } = useTutorial();
   const { pendingAchievements, checkAndUnlockAchievements, clearPendingAchievements } = useAchievements();
 
@@ -206,6 +210,53 @@ function App() {
     setActiveShard(null);
   };
 
+  // Handle going to next world after world completion
+  const handleGoToNextWorld = () => {
+    if (!completedWorldId) return;
+
+    const nextWorldId = getNextWorld(completedWorldId);
+    if (nextWorldId) {
+      // Unlock and navigate to next world
+      unlockWorld(nextWorldId);
+      setCurrentWorld(nextWorldId);
+    }
+
+    // Mark this world completion as shown
+    updateSaveData({
+      shownWorldCompleteIds: [...(saveData.shownWorldCompleteIds || []), completedWorldId],
+    });
+
+    setShowWorldComplete(false);
+    setCompletedWorldId(null);
+  };
+
+  // Stay in current world after completion
+  const handleStayAndExplore = () => {
+    if (!completedWorldId) return;
+
+    // Mark this world completion as shown
+    updateSaveData({
+      shownWorldCompleteIds: [...(saveData.shownWorldCompleteIds || []), completedWorldId],
+    });
+
+    setShowWorldComplete(false);
+    setCompletedWorldId(null);
+  };
+
+  // Go to world selector after completion
+  const handleGoToWorldSelector = () => {
+    if (!completedWorldId) return;
+
+    // Mark this world completion as shown
+    updateSaveData({
+      shownWorldCompleteIds: [...(saveData.shownWorldCompleteIds || []), completedWorldId],
+    });
+
+    setShowWorldComplete(false);
+    setCompletedWorldId(null);
+    setScreen('worldSelector');
+  };
+
   // Safe close all modals - used for error recovery
   const safeCloseAllModals = useCallback(() => {
     setActiveQuest(null);
@@ -229,15 +280,44 @@ function App() {
     safeCloseAllModals();
   }, [safeCloseAllModals]);
 
+  // Check if all quests in a world are completed
+  const checkWorldCompletion = useCallback((worldId: string): boolean => {
+    const world = getWorldById(worldId);
+    if (!world) return false;
+
+    const completedQuestIds = saveData.completedQuestIds || [];
+    return world.questIds.every(questId => completedQuestIds.includes(questId));
+  }, [saveData.completedQuestIds]);
+
+  // Get the next world in sequence
+  const getNextWorld = useCallback((currentId: string): string | null => {
+    const currentIndex = worlds.findIndex(w => w.id === currentId);
+    if (currentIndex === -1 || currentIndex >= worlds.length - 1) return null;
+    return worlds[currentIndex + 1].id;
+  }, []);
+
   // Clear activeQuest when quest complete screen is dismissed
+  // Also check for world completion
   useEffect(() => {
     if (screen === 'playing' && activeQuest) {
       // If we're back to playing but had an active quest, it means quest was completed
       // and dismissed - clear the activeQuest
       endQuest();
       setActiveQuest(null);
+
+      // Check if this completed a world (small delay to let state settle)
+      setTimeout(() => {
+        if (checkWorldCompletion(currentWorldId) && !showWorldComplete) {
+          // Check if we haven't already shown this world's completion
+          const shownWorldCompletes = saveData.shownWorldCompleteIds || [];
+          if (!shownWorldCompletes.includes(currentWorldId)) {
+            setCompletedWorldId(currentWorldId);
+            setShowWorldComplete(true);
+          }
+        }
+      }, 300);
     }
-  }, [screen]);
+  }, [screen, currentWorldId, checkWorldCompletion, showWorldComplete, saveData.shownWorldCompleteIds]);
 
   // Render based on current screen
   const renderScreen = () => {
@@ -345,6 +425,17 @@ function App() {
             achievements={pendingAchievements}
             onAllDismissed={clearPendingAchievements}
           />
+        )}
+        {showWorldComplete && completedWorldId && (
+          <ErrorBoundary onReset={() => setShowWorldComplete(false)}>
+            <WorldCompletePopup
+              worldId={completedWorldId}
+              nextWorldId={getNextWorld(completedWorldId)}
+              onGoToNextWorld={handleGoToNextWorld}
+              onStayAndExplore={handleStayAndExplore}
+              onGoToWorldSelector={handleGoToWorldSelector}
+            />
+          </ErrorBoundary>
         )}
       </div>
     </ErrorBoundary>

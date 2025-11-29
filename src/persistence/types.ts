@@ -306,6 +306,9 @@ export interface SaveData {
     perfectQuests: number;
   };
 
+  // World completion tracking (to not show popup twice)
+  shownWorldCompleteIds: string[];
+
   // Timestamps
   createdAt: number;
   lastPlayedAt: number;
@@ -366,6 +369,7 @@ export function createDefaultSaveData(): SaveData {
       speedBonuses: 0,
       perfectQuests: 0,
     },
+    shownWorldCompleteIds: [],
     createdAt: Date.now(),
     lastPlayedAt: Date.now(),
   };
@@ -417,6 +421,9 @@ export function migrateSaveData(oldData: Partial<SaveData>): SaveData {
       speedBonuses: 0,
       perfectQuests: 0,
     },
+
+    // Version 8: World completion tracking
+    shownWorldCompleteIds: oldData.shownWorldCompleteIds || [],
   };
 
   return migrated;

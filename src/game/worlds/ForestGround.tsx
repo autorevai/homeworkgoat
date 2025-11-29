@@ -3,35 +3,16 @@
  * Magical enchanted forest environment with trees, mushrooms, fairy lights, and mystical elements.
  */
 
-import { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
+import { useMemo } from 'react';
 
-// Magical floating light component
+// Magical floating light component - now static to prevent dizziness
 function FairyLight({ position, color }: { position: [number, number, number]; color: string }) {
-  const lightRef = useRef<THREE.PointLight>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
-  const offset = useMemo(() => Math.random() * Math.PI * 2, []);
-
-  useFrame((state) => {
-    if (lightRef.current && meshRef.current) {
-      // Gentle floating motion
-      const y = position[1] + Math.sin(state.clock.elapsedTime * 2 + offset) * 0.3;
-      const x = position[0] + Math.sin(state.clock.elapsedTime * 1.5 + offset) * 0.2;
-      lightRef.current.position.set(x, y, position[2]);
-      meshRef.current.position.set(x, y, position[2]);
-      
-      // Pulsing glow
-      lightRef.current.intensity = 0.5 + Math.sin(state.clock.elapsedTime * 3 + offset) * 0.2;
-    }
-  });
-
   return (
-    <group>
-      <pointLight ref={lightRef} position={position} color={color} intensity={0.5} distance={5} />
-      <mesh ref={meshRef} position={position}>
+    <group position={position}>
+      <pointLight color={color} intensity={0.4} distance={4} />
+      <mesh>
         <sphereGeometry args={[0.1, 8, 8]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.5} />
       </mesh>
     </group>
   );
@@ -129,25 +110,17 @@ function MushroomCluster({ position }: { position: [number, number, number] }) {
   );
 }
 
-// Mystical stone with runes
+// Mystical stone with runes - static glow to prevent dizziness
 function RuneStone({ position }: { position: [number, number, number] }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      // Subtle pulsing glow
-      const material = meshRef.current.material as THREE.MeshStandardMaterial;
-      material.emissiveIntensity = 0.3 + Math.sin(state.clock.elapsedTime * 2) * 0.2;
-    }
-  });
+  const rotation = useMemo(() => Math.random() * Math.PI, []);
 
   return (
     <group position={position}>
-      <mesh ref={meshRef} position={[0, 0.6, 0]} castShadow rotation={[0.1, Math.random() * Math.PI, 0]}>
+      <mesh position={[0, 0.6, 0]} castShadow rotation={[0.1, rotation, 0]}>
         <boxGeometry args={[0.6, 1.2, 0.3]} />
-        <meshStandardMaterial color="#555555" emissive="#4CAF50" emissiveIntensity={0.3} />
+        <meshStandardMaterial color="#555555" emissive="#4CAF50" emissiveIntensity={0.4} />
       </mesh>
-      <pointLight position={[0, 0.8, 0.3]} color="#4CAF50" intensity={0.5} distance={2} />
+      <pointLight position={[0, 0.8, 0.3]} color="#4CAF50" intensity={0.4} distance={2} />
     </group>
   );
 }
@@ -234,19 +207,20 @@ export function ForestGround() {
     { pos: [5, 0, 6] as [number, number, number], color: '#E91E63' },
   ], []);
 
+  // Reduced number of fairy lights for better performance
   const fairyLights = useMemo(() => {
     const lights: { pos: [number, number, number]; color: string }[] = [];
     const colors = ['#90EE90', '#00FFFF', '#FFD700', '#FF69B4', '#87CEEB'];
-    for (let i = 0; i < 20; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = 3 + Math.random() * 10;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2; // Evenly distributed
+      const radius = 5 + (i % 2) * 4;
       lights.push({
         pos: [
           Math.cos(angle) * radius,
-          1 + Math.random() * 3,
+          1.5 + (i % 3) * 0.5,
           Math.sin(angle) * radius,
         ],
-        color: colors[Math.floor(Math.random() * colors.length)],
+        color: colors[i % colors.length],
       });
     }
     return lights;
@@ -328,8 +302,7 @@ export function ForestGround() {
         />
       ))}
 
-      {/* Ambient forest fog effect */}
-      <fog attach="fog" args={['#1a3d1a', 15, 40]} />
+      {/* Removed fog effect - was causing dizziness */}
     </group>
   );
 }
