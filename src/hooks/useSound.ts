@@ -48,9 +48,8 @@ export function useSound() {
    * @param volume Optional volume (0-1)
    */
   const playSound = useCallback((soundId: SoundId, volume?: number) => {
-    // Use fallback sounds for now (Web Audio API synthesized)
-    // Set fallbackOnly: true until ElevenLabs API key is configured
-    playSoundEffect(soundId, { volume, fallbackOnly: true });
+    // Try ElevenLabs API first, automatically falls back to Web Audio API synthesized sounds
+    playSoundEffect(soundId, { volume });
   }, []);
 
   return { playSound };
