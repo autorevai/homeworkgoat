@@ -1,8 +1,8 @@
 # Homework GOAT - Game Design Document
 
-**Version:** 2.0
+**Version:** 2.1
 **Last Updated:** November 29, 2024
-**Status:** In Active Development
+**Status:** Sprint 2 Complete - In Active Development
 
 ---
 
@@ -240,7 +240,8 @@ Each world is a 40x40 unit playable area with:
 ### PHASE 6: Polish & Social
 | Feature | Status | Priority |
 |---------|--------|----------|
-| Grade Level Picker | [🔄] | HIGH |
+| Grade Level Picker | [✅] | HIGH |
+| Adaptive Difficulty | [✅] | HIGH |
 | Achievement System | [ ] | MEDIUM |
 | Sound Effects | [ ] | MEDIUM |
 | Music | [ ] | MEDIUM |
@@ -447,31 +448,43 @@ interface GameTestAPI {
 3. [✅] Crystal shard collection (25 shards)
 4. [✅] Larger 40x40 worlds
 
-### Sprint 2: Age Expansion (Current)
-1. [🔄] Grade level picker at start
-2. [ ] Adaptive difficulty per grade
-3. [ ] Agent testing interface
-4. [ ] Tutorial system
+### Sprint 2: Age Expansion ✅ COMPLETE
+1. [✅] Grade level picker at start (2nd-6th grade)
+2. [✅] Adaptive difficulty per grade (GRADE_CONFIGS)
+3. [✅] Grade-aware question generators
+4. [ ] Tutorial system (moved to Sprint 3)
 
-### Sprint 3: Building Foundation
+### Sprint 3: Tutorial & Polish (Current)
+1. [ ] Interactive tutorial system
+2. [ ] Agent testing interface
+3. [ ] Achievement system
+4. [ ] Sound effects
+
+### Sprint 4: Building Foundation
 1. [ ] Block currency system
 2. [ ] Simple homebase with grid building
 3. [ ] Structure challenges ("build a 3x4 wall")
 
-### Sprint 4: Story & Depth
+### Sprint 5: Story & Depth
 1. [ ] Branching story system
 2. [ ] Math-based story decisions
 3. [ ] Story consequences
 
-### Sprint 5: Creatures & Polish
+### Sprint 6: Creatures & Final Polish
 1. [ ] Battle creatures
 2. [ ] Creature evolution
-3. [ ] Achievement system
-4. [ ] Sound effects
+3. [ ] Music and final touches
 
 ---
 
 ## Changelog
+
+### v2.1 - November 29, 2024
+- Added grade level picker (2nd-6th grade) to onboarding flow
+- Implemented adaptive difficulty per grade with GRADE_CONFIGS
+- Added grade-aware question generators (generateGradeQuestion)
+- Updated onboarding flow: avatar -> name -> grade level -> world
+- Sprint 2 complete
 
 ### v2.0 - November 29, 2024
 - Expanded worlds from 20x25 to 40x40 units
