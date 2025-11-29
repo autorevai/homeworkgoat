@@ -15,9 +15,10 @@ interface CrystalShardProps {
   isCollected: boolean;
   playerPosition: THREE.Vector3;
   onInteract: () => void;
+  hideTooltip?: boolean;
 }
 
-export function CrystalShard({ shard, isCollected, playerPosition, onInteract }: CrystalShardProps) {
+export function CrystalShard({ shard, isCollected, playerPosition, onInteract, hideTooltip }: CrystalShardProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [hoverPulse, setHoverPulse] = useState(0);
 
@@ -99,7 +100,7 @@ export function CrystalShard({ shard, isCollected, playerPosition, onInteract }:
       />
 
       {/* Interaction prompt */}
-      {isNearby && (
+      {isNearby && !hideTooltip && (
         <Html position={[0, 1.2, 0]} center>
           <div
             style={{

@@ -302,6 +302,7 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
             isOpened={saveData.openedChestIds?.includes(chest.id) || false}
             playerPosition={playerPosition}
             onInteract={() => onOpenChest(chest)}
+            hideTooltip={isQuestActive}
           />
         ))}
 
@@ -313,6 +314,7 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
             isCollected={saveData.collectedShardIds?.includes(shard.id) || false}
             playerPosition={playerPosition}
             onInteract={() => onCollectShard(shard)}
+            hideTooltip={isQuestActive}
           />
         ))}
       </Canvas>

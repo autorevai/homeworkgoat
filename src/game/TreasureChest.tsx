@@ -15,9 +15,10 @@ interface TreasureChestProps {
   isOpened: boolean;
   playerPosition: THREE.Vector3;
   onInteract: () => void;
+  hideTooltip?: boolean;
 }
 
-export function TreasureChest({ chest, isOpened, playerPosition, onInteract }: TreasureChestProps) {
+export function TreasureChest({ chest, isOpened, playerPosition, onInteract, hideTooltip }: TreasureChestProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [glowIntensity, setGlowIntensity] = useState(0);
 
@@ -110,7 +111,7 @@ export function TreasureChest({ chest, isOpened, playerPosition, onInteract }: T
       )}
 
       {/* Interaction prompt */}
-      {isNearby && !isOpened && (
+      {isNearby && !isOpened && !hideTooltip && (
         <Html position={[0, 1.5, 0]} center>
           <div
             style={{
@@ -137,7 +138,7 @@ export function TreasureChest({ chest, isOpened, playerPosition, onInteract }: T
       )}
 
       {/* Opened indicator */}
-      {isOpened && isNearby && (
+      {isOpened && isNearby && !hideTooltip && (
         <Html position={[0, 1, 0]} center>
           <div
             style={{
