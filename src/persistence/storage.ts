@@ -1,0 +1,142 @@
+/**
+ * Storage Utilities
+ * Handles saving and loading game data from localStorage.
+ */
+
+import type { SaveData, AvatarConfig } from './types';
+import { DEFAULT_AVATAR } from './types';
+import { createInitialStats } from '../learning/learningEngine';
+
+const STORAGE_KEY = 'homework-goat-save';
+const CURRENT_VERSION = 1;
+
+/**
+ * Create a fresh save data object with defaults
+ */
+export function createDefaultSaveData(): SaveData {
+  return {
+    saveVersion: CURRENT_VERSION,
+    playerName: '',
+    avatarConfig: { ...DEFAULT_AVATAR },
+    xp: 0,
+    completedQuestIds: [],
+    unlockedCosmetics: [],
+    learningStats: createInitialStats(),
+    createdAt: Date.now(),
+    lastPlayedAt: Date.now(),
+  };
+}
+
+/**
+ * Load save data from localStorage
+ * Returns default data if no save exists or if data is corrupted
+ */
+export function loadSaveData(): SaveData {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return createDefaultSaveData();
+    }
+
+    const data = JSON.parse(raw) as SaveData;
+
+    // Version check - migrate if needed in the future
+    if (data.saveVersion !== CURRENT_VERSION) {
+      console.warn('Save data version mismatch, using defaults');
+      return createDefaultSaveData();
+    }
+
+    // Validate required fields exist
+    if (!data.avatarConfig || typeof data.xp !== 'number') {
+      console.warn('Save data corrupted, using defaults');
+      return createDefaultSaveData();
+    }
+
+    // Ensure learning stats exist (for backwards compatibility)
+    if (!data.learningStats) {
+      data.learningStats = createInitialStats();
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Failed to load save data:', error);
+    return createDefaultSaveData();
+  }
+}
+
+/**
+ * Save data to localStorage
+ */
+export function saveSaveData(data: SaveData): void {
+  try {
+    const toSave: SaveData = {
+      ...data,
+      lastPlayedAt: Date.now(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch (error) {
+    console.error('Failed to save data:', error);
+  }
+}
+
+/**
+ * Check if a save exists
+ */
+export function hasSaveData(): boolean {
+  return localStorage.getItem(STORAGE_KEY) !== null;
+}
+
+/**
+ * Clear all save data (reset progress)
+ */
+export function clearSaveData(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+/**
+ * Update just the avatar config
+ */
+export function updateAvatarConfig(config: AvatarConfig): void {
+  const data = loadSaveData();
+  data.avatarConfig = config;
+  saveSaveData(data);
+}
+
+/**
+ * Update player name
+ */
+export function updatePlayerName(name: string): void {
+  const data = loadSaveData();
+  data.playerName = name;
+  saveSaveData(data);
+}
+
+/**
+ * Add XP and save
+ */
+export function addXp(amount: number): SaveData {
+  const data = loadSaveData();
+  data.xp += amount;
+  saveSaveData(data);
+  return data;
+}
+
+/**
+ * Mark a quest as completed
+ */
+export function completeQuest(questId: string): SaveData {
+  const data = loadSaveData();
+  if (!data.completedQuestIds.includes(questId)) {
+    data.completedQuestIds.push(questId);
+  }
+  saveSaveData(data);
+  return data;
+}
+
+/**
+ * Check if a quest is completed
+ */
+export function isQuestCompleted(questId: string): boolean {
+  const data = loadSaveData();
+  return data.completedQuestIds.includes(questId);
+}
