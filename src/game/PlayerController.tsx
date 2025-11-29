@@ -15,12 +15,12 @@ interface PlayerControllerProps {
   disabled?: boolean;
 }
 
-// World boundaries - 40x40 map
+// World boundaries - 40x40 map (player can reach all chests/shards)
 const BOUNDS = {
-  minX: -19,
-  maxX: 19,
-  minZ: -19,
-  maxZ: 19,
+  minX: -20,
+  maxX: 20,
+  minZ: -20,
+  maxZ: 20,
 };
 
 // Movement settings
