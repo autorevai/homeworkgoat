@@ -133,7 +133,7 @@ export function TreasureChest({ chest, isOpened, playerPosition, onInteract, hid
               {rarityInfo.emoji} {rarityInfo.label} Chest
             </div>
             <div style={{ fontSize: '12px', opacity: 0.9 }}>
-              {isMobile ? 'Tap E button to unlock' : 'Press E to unlock'}
+              {isMobile ? 'Tap 👆 to unlock' : 'Press E to unlock'}
             </div>
           </div>
         </Html>

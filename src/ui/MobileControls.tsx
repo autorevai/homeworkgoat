@@ -168,10 +168,11 @@ export function MobileControls({ onAction, disabled = false }: MobileControlsPro
         />
       </div>
 
-      {/* Action Button */}
+      {/* Action Button - Hand/Interact icon */}
       <button
         onTouchStart={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           onAction();
         }}
         style={{
@@ -179,20 +180,20 @@ export function MobileControls({ onAction, disabled = false }: MobileControlsPro
           height: '80px',
           borderRadius: '50%',
           background: 'linear-gradient(135deg, #FFD700, #FFA500)',
-          border: '3px solid rgba(255, 255, 255, 0.5)',
+          border: '4px solid rgba(255, 255, 255, 0.6)',
           color: '#1a1a2e',
-          fontSize: '24px',
+          fontSize: '32px',
           fontWeight: 'bold',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           pointerEvents: 'auto',
           touchAction: 'manipulation',
-          boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
+          boxShadow: '0 4px 20px rgba(255, 215, 0, 0.5)',
           cursor: 'pointer',
         }}
       >
-        E
+        👆
       </button>
     </div>
   );

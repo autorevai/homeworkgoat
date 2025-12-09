@@ -173,7 +173,7 @@ export function NPC({ quest, position, isCompleted, onInteract, playerPosition }
               transform: hovered ? 'scale(1.1)' : 'scale(1)',
             }}
           >
-            {isCompleted ? '✓ Quest Complete' : (isMobile ? `Tap to talk: ${quest.title}` : `Press E or Click: ${quest.title}`)}
+            {isCompleted ? '✓ Quest Complete' : (isMobile ? `Tap 👆 to talk` : `Press E or Click: ${quest.title}`)}
           </div>
         </Html>
       )}

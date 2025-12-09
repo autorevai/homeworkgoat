@@ -1,12 +1,14 @@
 /**
  * ChestPuzzle Component
  * Modal UI for solving the math puzzle to unlock a treasure chest.
+ * Mobile-responsive design.
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { TreasureChestDef } from '../persistence/types';
 import { CHEST_RARITY_CONFIG, getChestRarityInfo, generateChestPuzzle } from '../exploration/treasureChests';
 import { SpeakerButton } from './SpeakerButton';
+import { isTouchDevice } from './MobileControls';
 
 interface ChestPuzzleProps {
   chest: TreasureChestDef;
@@ -21,6 +23,7 @@ export function ChestPuzzle({ chest, onSuccess, onClose }: ChestPuzzleProps) {
   const [isCorrect, setIsCorrect] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const isMobile = useMemo(() => isTouchDevice(), []);
 
   const config = CHEST_RARITY_CONFIG[chest.rarity];
   const rarityInfo = getChestRarityInfo(chest.rarity);
@@ -64,14 +67,17 @@ export function ChestPuzzle({ chest, onSuccess, onClose }: ChestPuzzleProps) {
 
   return (
     <div
+      className="menu-scrollable"
       style={{
         position: 'fixed',
         inset: 0,
         background: 'rgba(0, 0, 0, 0.85)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: isMobile ? 'flex-start' : 'center',
         justifyContent: 'center',
         zIndex: 1000,
+        padding: isMobile ? '15px' : '20px',
+        paddingTop: isMobile ? '30px' : '20px',
         animation: 'fadeIn 0.3s ease-out',
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -80,12 +86,13 @@ export function ChestPuzzle({ chest, onSuccess, onClose }: ChestPuzzleProps) {
         style={{
           background: `linear-gradient(135deg, #1a1a2e 0%, ${config.color}33 100%)`,
           borderRadius: '20px',
-          padding: '30px',
+          padding: isMobile ? '20px' : '30px',
           maxWidth: '500px',
-          width: '90%',
+          width: '100%',
           border: `3px solid ${config.color}`,
           boxShadow: `0 0 40px ${config.glowColor}66`,
           animation: 'slideUp 0.3s ease-out',
+          marginBottom: isMobile ? '30px' : '0',
         }}
       >
         {/* Header */}
@@ -137,17 +144,22 @@ export function ChestPuzzle({ chest, onSuccess, onClose }: ChestPuzzleProps) {
               />
             </div>
 
-            {/* Choices */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+            {/* Choices - larger tap targets on mobile */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: isMobile ? '10px' : '12px', marginBottom: '20px' }}>
               {puzzle.choices.map((choice, index) => (
                 <button
                   key={index}
                   onClick={() => handleAnswer(choice)}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    if (!showResult) handleAnswer(choice);
+                  }}
                   disabled={showResult}
                   style={{
-                    padding: '18px',
-                    fontSize: '24px',
+                    padding: isMobile ? '20px 15px' : '18px',
+                    fontSize: isMobile ? '20px' : '24px',
                     fontWeight: 'bold',
+                    minHeight: isMobile ? '60px' : 'auto',
                     background: showResult
                       ? choice === puzzle.answer
                         ? 'rgba(76, 175, 80, 0.4)'
@@ -166,6 +178,7 @@ export function ChestPuzzle({ chest, onSuccess, onClose }: ChestPuzzleProps) {
                     color: 'white',
                     cursor: showResult ? 'default' : 'pointer',
                     transition: 'all 0.2s',
+                    touchAction: 'manipulation',
                   }}
                 >
                   {choice}
