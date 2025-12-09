@@ -479,7 +479,7 @@ export function getQuestsForWorld(worldId: string): Quest[] {
     'world-school': ['quest-power-crystals', 'quest-treasure-hunt', 'quest-robot-repair', 'quest-lunch-count'],
     'world-forest': ['quest-fairy-lights', 'quest-owl-wisdom', 'quest-mushroom-math', 'quest-forest-guardian'],
     'world-space': ['quest-asteroid-count', 'quest-fuel-calculation', 'quest-alien-decoder', 'quest-gravity-math'],
-    'world-kingdom': ['quest-royal-vault', 'quest-knight-training', 'quest-wizard-potions', 'quest-dragon-eggs'],
+    'world-castle': ['quest-royal-vault', 'quest-knight-training', 'quest-wizard-potions', 'quest-dragon-eggs'],
     'world-underwater': ['quest-pearl-counting', 'quest-treasure-dive', 'quest-coral-calculation', 'quest-whale-song'],
   };
 
