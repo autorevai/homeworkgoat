@@ -309,6 +309,9 @@ export interface SaveData {
   // World completion tracking (to not show popup twice)
   shownWorldCompleteIds: string[];
 
+  // Accessibility settings
+  accessibilitySettings?: AccessibilitySettings;
+
   // Timestamps
   createdAt: number;
   lastPlayedAt: number;
@@ -468,4 +471,15 @@ export interface LeaderboardEntry {
   questsCompleted: number;
   longestStreak: number;
   updatedAt: number;
+}
+
+/**
+ * Accessibility settings for users with different needs
+ */
+export interface AccessibilitySettings {
+  largeText: boolean;
+  highContrast: boolean;
+  reducedMotion: boolean;
+  colorBlindMode: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
+  screenReaderMode: boolean;
 }

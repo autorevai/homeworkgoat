@@ -12,6 +12,7 @@ import { AvatarCustomization } from './ui/AvatarCustomization';
 import { NameSetup } from './ui/NameSetup';
 import { GradeLevelPicker } from './ui/GradeLevelPicker';
 import { OptionsMenu } from './ui/OptionsMenu';
+import { AccessibilitySettings } from './ui/AccessibilitySettings';
 import { WorldScene } from './game/WorldScene';
 import { Hud } from './ui/Hud';
 import { QuestDialog } from './ui/QuestDialog';
@@ -27,6 +28,7 @@ import { WorldCompletePopup } from './ui/WorldCompletePopup';
 import { useAchievements } from './hooks/useAchievements';
 import { initAnalytics } from './firebase/config';
 import { initializeGameTestAPI } from './testing/agentTestAPI';
+import { initializeAutonomousAgent } from './testing/autonomousAgent';
 import type { Quest } from './learning/types';
 import type { BossBattle as BossBattleType } from './conquest/bosses';
 import type { TreasureChestDef, CrystalShardDef } from './persistence/types';
@@ -100,6 +102,8 @@ function App() {
     signIn();
     // Initialize Agent Testing API (accessible via window.gameTestAPI)
     initializeGameTestAPI();
+    // Initialize Autonomous Test Agent (accessible via window.gameAgent)
+    initializeAutonomousAgent();
   }, []);
 
   // Initialize game state on mount
@@ -339,6 +343,9 @@ function App() {
 
       case 'options':
         return <OptionsMenu />;
+
+      case 'accessibility':
+        return <AccessibilitySettings onBack={() => setScreen('options')} />;
 
       case 'worldSelector':
         return (

@@ -138,6 +138,14 @@ export function OptionsMenu() {
           </button>
 
           <button
+            className="btn btn-secondary"
+            onClick={() => setScreen('accessibility')}
+            style={{ width: '100%' }}
+          >
+            ♿ Accessibility
+          </button>
+
+          <button
             className="btn btn-danger"
             onClick={handleReset}
             style={{ width: '100%' }}

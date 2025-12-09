@@ -23,7 +23,7 @@ Each crystal needs a specific number to power it up. Get the answers right, and 
 
 Are you ready to help?`,
     questionIds: ['add-001', 'mult-001', 'sub-003', 'word-002'],
-    rewardXp: 100,
+    rewardXp: 150, // Boosted for faster early progression
     completionMessage: `AMAZING! You did it!
 
 All the Power Crystals are glowing bright again! The school has power once more, all thanks to your math skills!
@@ -44,7 +44,7 @@ Help me decode these number puzzles, and I'll share the treasure with you!
 
 What do you say, ready to hunt for treasure?`,
     questionIds: ['add-008', 'sub-007', 'mult-011', 'div-002', 'word-006'],
-    rewardXp: 150,
+    rewardXp: 175, // Boosted for faster early progression
     completionMessage: `Shiver me timbers! You cracked the code!
 
 The treasure is ours! Well, mostly yours - you did all the hard work!
@@ -63,7 +63,7 @@ I need a math expert to recalibrate my processors. Each correct answer fixes one
 
 My multiplication module is completely fried. Can you help me, young engineer?`,
     questionIds: ['mult-002', 'mult-003', 'mult-005', 'mult-007', 'mult-008'],
-    rewardXp: 125,
+    rewardXp: 150, // Boosted for faster early progression
     completionMessage: `BEEP BOOP! All systems operational!
 
 Thank you, engineer! My multiplication circuits are running perfectly now!
@@ -82,7 +82,7 @@ The lunch orders are all mixed up! I need to figure out how many sandwiches, dri
 
 Can you help me with these calculations? The students are counting on us!`,
     questionIds: ['add-003', 'add-006', 'word-004', 'word-005', 'div-004'],
-    rewardXp: 100,
+    rewardXp: 150, // Boosted for faster early progression
     completionMessage: `Perfect! The lunch is saved!
 
 Every student will get their meal thanks to your quick math!

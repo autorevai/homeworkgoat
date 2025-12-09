@@ -24,6 +24,9 @@ export function MainMenu() {
     }
   };
 
+  // Check if mobile
+  const isMobile = window.innerWidth <= 768;
+
   return (
     <div
       style={{
@@ -32,10 +35,14 @@ export function MainMenu() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: isMobile ? 'flex-start' : 'center',
         background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
         position: 'relative',
-        overflow: 'hidden',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        paddingTop: isMobile ? 'max(20px, env(safe-area-inset-top))' : '0',
+        paddingBottom: isMobile ? 'max(40px, env(safe-area-inset-bottom))' : '0',
+        boxSizing: 'border-box',
       }}
     >
       {/* Animated background shapes */}
@@ -80,10 +87,10 @@ export function MainMenu() {
       />
 
       {/* Title */}
-      <div style={{ textAlign: 'center', marginBottom: '40px', zIndex: 1 }}>
+      <div style={{ textAlign: 'center', marginBottom: isMobile ? '20px' : '40px', zIndex: 1 }}>
         <h1
           style={{
-            fontSize: '72px',
+            fontSize: isMobile ? '48px' : '72px',
             fontWeight: 'bold',
             color: '#FFD700',
             textShadow: '4px 4px 8px rgba(0,0,0,0.5), 0 0 40px rgba(255,215,0,0.3)',
@@ -96,7 +103,7 @@ export function MainMenu() {
         </h1>
         <h1
           style={{
-            fontSize: '96px',
+            fontSize: isMobile ? '64px' : '96px',
             fontWeight: 'bold',
             background: 'linear-gradient(135deg, #4CAF50, #8BC34A)',
             WebkitBackgroundClip: 'text',
@@ -111,7 +118,7 @@ export function MainMenu() {
         </h1>
         <p
           style={{
-            fontSize: '20px',
+            fontSize: isMobile ? '16px' : '20px',
             color: '#b8b8b8',
             marginTop: '10px',
           }}
@@ -127,8 +134,8 @@ export function MainMenu() {
             background: 'rgba(76, 175, 80, 0.2)',
             border: '2px solid rgba(76, 175, 80, 0.5)',
             borderRadius: '12px',
-            padding: '15px 30px',
-            marginBottom: '30px',
+            padding: isMobile ? '10px 20px' : '15px 30px',
+            marginBottom: isMobile ? '15px' : '30px',
             textAlign: 'center',
             zIndex: 1,
           }}
@@ -149,8 +156,8 @@ export function MainMenu() {
             background: 'linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 87, 34, 0.2))',
             border: '2px solid rgba(255, 152, 0, 0.5)',
             borderRadius: '12px',
-            padding: '15px 25px',
-            marginBottom: '20px',
+            padding: isMobile ? '10px 20px' : '15px 25px',
+            marginBottom: isMobile ? '15px' : '20px',
             textAlign: 'center',
             zIndex: 1,
             maxWidth: '300px',
@@ -195,8 +202,9 @@ export function MainMenu() {
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '15px',
+          gap: isMobile ? '10px' : '15px',
           zIndex: 1,
+          paddingBottom: isMobile ? '20px' : '0',
         }}
       >
         <button
@@ -204,11 +212,11 @@ export function MainMenu() {
           onClick={handlePlay}
           style={{
             minWidth: '250px',
-            fontSize: '22px',
-            padding: '20px 40px',
+            fontSize: isMobile ? '18px' : '22px',
+            padding: isMobile ? '14px 30px' : '20px 40px',
           }}
         >
-          {isNewPlayer ? '🎮 New Game' : '▶️ Continue'}
+          {isNewPlayer ? '🎮 New Game' : '▶️ CONTINUE'}
         </button>
 
         {/* World Selector button (for returning players) */}
@@ -219,9 +227,10 @@ export function MainMenu() {
             style={{
               minWidth: '250px',
               background: 'linear-gradient(135deg, #9C27B0, #673AB7)',
+              padding: isMobile ? '12px 30px' : undefined,
             }}
           >
-            🌍 Choose World
+            🌍 CHOOSE WORLD
           </button>
         )}
 
@@ -230,9 +239,10 @@ export function MainMenu() {
           onClick={() => setScreen('options')}
           style={{
             minWidth: '250px',
+            padding: isMobile ? '12px 30px' : undefined,
           }}
         >
-          ⚙️ Options
+          ⚙️ OPTIONS
         </button>
 
         {!isNewPlayer && (
@@ -246,8 +256,9 @@ export function MainMenu() {
             }}
             style={{
               minWidth: '250px',
-              marginTop: '20px',
+              marginTop: isMobile ? '10px' : '20px',
               opacity: 0.8,
+              padding: isMobile ? '10px 30px' : undefined,
             }}
           >
             🗑️ Reset Progress
@@ -258,11 +269,14 @@ export function MainMenu() {
       {/* Version */}
       <p
         style={{
-          position: 'absolute',
-          bottom: '20px',
-          right: '20px',
+          position: isMobile ? 'relative' : 'absolute',
+          bottom: isMobile ? 'auto' : '20px',
+          right: isMobile ? 'auto' : '20px',
           color: 'rgba(255,255,255,0.3)',
           fontSize: '12px',
+          marginTop: isMobile ? '20px' : '0',
+          textAlign: isMobile ? 'center' : 'right',
+          width: isMobile ? '100%' : 'auto',
         }}
       >
         v1.0.0 • Made with ❤️ for learning

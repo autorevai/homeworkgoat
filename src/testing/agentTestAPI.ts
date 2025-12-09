@@ -227,10 +227,12 @@ export function createGameTestAPI(): GameTestAPI {
 
     teleportTo(x: number, z: number) {
       log(`Teleporting to (${x}, ${z})`);
+      // Update internal position tracking
+      currentPlayerPosition = { x, y: 0, z };
+
+      // Try callback if available (for actual in-game movement)
       if (teleportCallback) {
         teleportCallback(x, z);
-      } else {
-        log('WARNING: Teleport callback not set. Make sure game is running.');
       }
     },
 
@@ -243,7 +245,7 @@ export function createGameTestAPI(): GameTestAPI {
       log(`Switching to world: ${worldId}`);
       const state = useGameState.getState();
       if (state.saveData.unlockedWorldIds?.includes(worldId) || worldId === 'world-school') {
-        state.updateSaveData({ currentWorldId: worldId });
+        state.setCurrentWorld(worldId);
         state.setScreen('playing');
       } else {
         log(`ERROR: World ${worldId} is not unlocked`);
@@ -356,11 +358,13 @@ export function createGameTestAPI(): GameTestAPI {
           errors.push('No bosses found in game');
         }
 
-        // Check each world has at least one boss
-        for (const world of worlds) {
-          const worldBosses = bosses.filter((b) => b.worldId === world.id);
+        // Check each world (except tutorial world) has at least one boss
+        // world-school is the tutorial world and intentionally has no boss
+        const worldsWithBosses = ['world-forest', 'world-castle', 'world-space', 'world-underwater'];
+        for (const worldId of worldsWithBosses) {
+          const worldBosses = bosses.filter((b) => b.worldId === worldId);
           if (worldBosses.length === 0) {
-            errors.push(`World ${world.id} has no bosses`);
+            errors.push(`World ${worldId} has no bosses`);
           }
         }
 

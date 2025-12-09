@@ -32,6 +32,7 @@ export type GameScreen =
   | 'gradeLevelSetup'
   | 'playing'
   | 'options'
+  | 'accessibility'
   | 'questComplete'
   | 'worldSelector'
   | 'bossBattle';
