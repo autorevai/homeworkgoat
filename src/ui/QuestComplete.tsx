@@ -1,13 +1,16 @@
 /**
  * QuestComplete Component
  * Displays quest completion with rewards and stats.
+ * Mobile-responsive design.
  */
 
 import { useGameState } from '../hooks/useGameState';
 import { getQuestById } from '../learning/quests';
+import { isTouchDevice } from './MobileControls';
 
 export function QuestComplete() {
   const { questCompleteData, dismissQuestComplete, level } = useGameState();
+  const isMobile = isTouchDevice();
 
   if (!questCompleteData) return null;
 
@@ -18,15 +21,17 @@ export function QuestComplete() {
 
   return (
     <div
+      className="menu-scrollable"
       style={{
         position: 'fixed',
         inset: 0,
         background: 'rgba(0, 0, 0, 0.9)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: isMobile ? 'flex-start' : 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        padding: '20px',
+        padding: isMobile ? '15px' : '20px',
+        paddingTop: isMobile ? '30px' : '20px',
       }}
     >
       <div
@@ -34,8 +39,9 @@ export function QuestComplete() {
         style={{
           maxWidth: '500px',
           width: '100%',
-          padding: '40px',
+          padding: isMobile ? '25px' : '40px',
           textAlign: 'center',
+          marginBottom: isMobile ? '30px' : '0',
         }}
       >
         {/* Celebration header */}
@@ -175,14 +181,20 @@ export function QuestComplete() {
           </div>
         )}
 
-        {/* Continue button */}
+        {/* Continue button - large tap target for mobile */}
         <button
           className="btn btn-primary"
           onClick={dismissQuestComplete}
-          style={{ 
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            dismissQuestComplete();
+          }}
+          style={{
             width: '100%',
-            fontSize: '20px',
-            padding: '18px',
+            fontSize: isMobile ? '18px' : '20px',
+            padding: isMobile ? '20px' : '18px',
+            minHeight: '60px',
+            touchAction: 'manipulation',
           }}
         >
           Continue Adventure! 🚀

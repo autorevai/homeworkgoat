@@ -9,6 +9,12 @@ import * as THREE from 'three';
 import { VoxelCharacter } from './VoxelCharacter';
 import type { AvatarConfig } from '../persistence/types';
 
+// Shared mobile input state (set by MobileControls component)
+export const mobileInputState = {
+  forward: 0,
+  turn: 0,
+};
+
 interface PlayerControllerProps {
   avatarConfig: AvatarConfig;
   onPositionChange: (position: THREE.Vector3) => void;
@@ -67,19 +73,25 @@ export function PlayerController({
     };
   }, [disabled]);
 
-  // Get movement direction from keys
+  // Get movement direction from keys or mobile input
   const getMovement = useCallback(() => {
     const keys = keysRef.current;
     let forward = 0;
-    let strafe = 0;
     let turn = 0;
 
+    // Keyboard input
     if (keys.has('w') || keys.has('arrowup')) forward += 1;
     if (keys.has('s') || keys.has('arrowdown')) forward -= 1;
     if (keys.has('a') || keys.has('arrowleft')) turn += 1;
     if (keys.has('d') || keys.has('arrowright')) turn -= 1;
 
-    return { forward, strafe, turn };
+    // Mobile input (if any) - adds to keyboard
+    if (mobileInputState.forward !== 0 || mobileInputState.turn !== 0) {
+      forward = mobileInputState.forward;
+      turn = mobileInputState.turn;
+    }
+
+    return { forward, turn };
   }, []);
 
   // Update loop

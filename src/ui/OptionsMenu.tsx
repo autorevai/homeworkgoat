@@ -16,11 +16,12 @@ export function OptionsMenu() {
 
   return (
     <div
+      className="menu-scrollable"
       style={{
         width: '100%',
         height: '100%',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
         padding: '20px',
@@ -31,7 +32,8 @@ export function OptionsMenu() {
         style={{
           maxWidth: '500px',
           width: '100%',
-          padding: '40px',
+          padding: '30px',
+          margin: '20px 0',
         }}
       >
         <h2 style={{ 

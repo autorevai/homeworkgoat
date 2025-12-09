@@ -1,6 +1,7 @@
 /**
  * QuestDialog Component
  * Handles NPC dialogue, quest questions, and feedback display.
+ * Mobile-responsive design.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -11,6 +12,7 @@ import { useSound, SoundTriggers } from '../hooks/useSound';
 import { SpeakerButton } from './SpeakerButton';
 import { AbilityBar } from './AbilityBar';
 import type { AbilityEffect } from '../abilities/abilities';
+import { isTouchDevice } from './MobileControls';
 
 interface QuestDialogProps {
   quest: Quest;
@@ -93,18 +95,21 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
   }, [nextQuestion]);
 
   const isQuestCompleted = saveData.completedQuestIds.includes(quest.id);
+  const isMobile = isTouchDevice();
 
   return (
     <div
+      className="menu-scrollable"
       style={{
         position: 'fixed',
         inset: 0,
         background: 'rgba(0, 0, 0, 0.85)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: isMobile ? 'flex-start' : 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        padding: '20px',
+        padding: isMobile ? '10px' : '20px',
+        paddingTop: isMobile ? '20px' : '20px',
       }}
     >
       <div
@@ -112,9 +117,10 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
         style={{
           maxWidth: '600px',
           width: '100%',
-          maxHeight: '90vh',
-          overflow: 'auto',
-          padding: '30px',
+          maxHeight: isMobile ? 'none' : '90vh',
+          overflow: isMobile ? 'visible' : 'auto',
+          padding: isMobile ? '20px' : '30px',
+          marginBottom: isMobile ? '20px' : '0',
         }}
       >
         {/* Quest completed state */}

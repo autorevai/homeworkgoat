@@ -1,15 +1,18 @@
 /**
  * Tutorial System
  * Interactive step-by-step guide for new players.
+ * Mobile-aware with joystick instructions.
  */
 
 import { useState, useEffect } from 'react';
 import { useGameState } from '../hooks/useGameState';
+import { isTouchDevice } from './MobileControls';
 
 export interface TutorialStep {
   id: string;
   title: string;
   content: string;
+  mobileContent?: string; // Alternative content for mobile
   highlight?: 'controls' | 'hud' | 'npc' | 'chest' | 'menu';
   position: 'center' | 'top' | 'bottom' | 'left' | 'right';
   action?: 'move' | 'interact' | 'answer' | 'none';
@@ -28,6 +31,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'movement',
     title: 'Moving Around',
     content: 'Use WASD or Arrow Keys to move your character. Try walking around!',
+    mobileContent: 'Use the joystick in the bottom-left corner to move your character. Try walking around!',
     highlight: 'controls',
     position: 'bottom',
     action: 'move',
@@ -43,6 +47,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'find-npc',
     title: 'Talk to NPCs',
     content: 'See those characters with names above them? Walk up to one and press E to start a math quest!',
+    mobileContent: 'See those characters with names above them? Walk up to one and tap the yellow E button to start a math quest!',
     highlight: 'npc',
     position: 'top',
     action: 'interact',
@@ -52,7 +57,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Your Progress',
     content: 'Check the top-left corner to see your level, XP, and completed quests. Answer questions correctly to earn XP!',
     highlight: 'hud',
-    position: 'right',
+    position: 'center',
     action: 'none',
   },
   {
@@ -74,8 +79,9 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'menu',
     title: 'Menu & Worlds',
     content: 'Click the Menu button to access settings, change worlds, or take a break. Have fun learning!',
+    mobileContent: 'Tap the Menu button to access settings, change worlds, or take a break. Have fun learning!',
     highlight: 'menu',
-    position: 'left',
+    position: 'center',
     action: 'none',
   },
   {
@@ -95,24 +101,49 @@ interface TutorialProps {
 export function Tutorial({ onComplete, onSkip }: TutorialProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [hasMoved, setHasMoved] = useState(false);
+  const isMobile = isTouchDevice();
 
   const step = TUTORIAL_STEPS[currentStep];
   const isLastStep = currentStep === TUTORIAL_STEPS.length - 1;
   const progress = ((currentStep + 1) / TUTORIAL_STEPS.length) * 100;
 
-  // Listen for movement to complete movement step
+  // Get the appropriate content based on device
+  const stepContent = isMobile && step.mobileContent ? step.mobileContent : step.content;
+
+  // Listen for movement to complete movement step (keyboard or touch)
   useEffect(() => {
     if (step.action !== 'move') return;
 
+    // Keyboard detection
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) {
         setHasMoved(true);
       }
     };
 
+    // Touch detection - check if joystick is being used
+    const checkMobileMovement = () => {
+      // Import the mobile input state to check for movement
+      import('../game/PlayerController').then(({ mobileInputState }) => {
+        if (mobileInputState.forward !== 0 || mobileInputState.turn !== 0) {
+          setHasMoved(true);
+        }
+      });
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [step.action]);
+
+    // For mobile, poll for joystick movement
+    let mobileInterval: ReturnType<typeof setInterval>;
+    if (isMobile) {
+      mobileInterval = setInterval(checkMobileMovement, 200);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (mobileInterval) clearInterval(mobileInterval);
+    };
+  }, [step.action, isMobile]);
 
   // Auto-advance after movement
   useEffect(() => {
@@ -139,22 +170,30 @@ export function Tutorial({ onComplete, onSkip }: TutorialProps) {
     }
   };
 
-  // Get highlight styles
+  // Get highlight styles - adjusted for mobile
   const getHighlightStyle = (): React.CSSProperties => {
     switch (step.highlight) {
       case 'hud':
-        return { top: '10px', left: '10px', width: '280px', height: '120px' };
+        return { top: '10px', left: '10px', width: isMobile ? '200px' : '280px', height: isMobile ? '100px' : '120px' };
       case 'menu':
         return { top: '10px', right: '10px', width: '100px', height: '50px' };
       case 'controls':
+        // On mobile, highlight the joystick area
+        if (isMobile) {
+          return { bottom: '20px', left: '20px', width: '140px', height: '140px', borderRadius: '50%' };
+        }
         return { bottom: '10px', left: '50%', transform: 'translateX(-50%)', width: '400px', height: '60px' };
       default:
         return {};
     }
   };
 
-  // Get modal position
+  // Get modal position - centered on mobile for better UX
   const getModalPosition = (): React.CSSProperties => {
+    if (isMobile) {
+      // Always center on mobile for better readability
+      return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
+    }
     switch (step.position) {
       case 'top':
         return { top: '20%', left: '50%', transform: 'translateX(-50%)' };
@@ -274,12 +313,12 @@ export function Tutorial({ onComplete, onSkip }: TutorialProps) {
           <p
             style={{
               color: '#e0e0e0',
-              fontSize: '16px',
+              fontSize: isMobile ? '14px' : '16px',
               lineHeight: 1.6,
               margin: '0 0 25px 0',
             }}
           >
-            {step.content}
+            {stepContent}
           </p>
 
           {/* Action hint */}
@@ -294,7 +333,9 @@ export function Tutorial({ onComplete, onSkip }: TutorialProps) {
               }}
             >
               <span style={{ color: '#FFC107' }}>
-                Press W, A, S, D or Arrow Keys to move!
+                {isMobile
+                  ? 'Use the joystick to move!'
+                  : 'Press W, A, S, D or Arrow Keys to move!'}
               </span>
             </div>
           )}

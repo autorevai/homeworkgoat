@@ -3,12 +3,13 @@
  * A 3D chest that glows and can be interacted with to solve math puzzles.
  */
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { TreasureChestDef } from '../persistence/types';
 import { CHEST_RARITY_CONFIG, getChestRarityInfo } from '../exploration/treasureChests';
+import { isTouchDevice } from '../ui/MobileControls';
 
 interface TreasureChestProps {
   chest: TreasureChestDef;
@@ -21,6 +22,7 @@ interface TreasureChestProps {
 export function TreasureChest({ chest, isOpened, playerPosition, onInteract, hideTooltip }: TreasureChestProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [glowIntensity, setGlowIntensity] = useState(0);
+  const isMobile = useMemo(() => isTouchDevice(), []);
 
   const config = CHEST_RARITY_CONFIG[chest.rarity];
   const rarityInfo = getChestRarityInfo(chest.rarity);
@@ -131,7 +133,7 @@ export function TreasureChest({ chest, isOpened, playerPosition, onInteract, hid
               {rarityInfo.emoji} {rarityInfo.label} Chest
             </div>
             <div style={{ fontSize: '12px', opacity: 0.9 }}>
-              Press E to unlock
+              {isMobile ? 'Tap E button to unlock' : 'Press E to unlock'}
             </div>
           </div>
         </Html>

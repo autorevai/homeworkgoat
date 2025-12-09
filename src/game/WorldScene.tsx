@@ -24,6 +24,7 @@ import { updatePlayerPosition } from '../testing/agentTestAPI';
 import type { Quest } from '../learning/types';
 import type { BossBattle } from '../conquest/bosses';
 import type { TreasureChestDef, CrystalShardDef } from '../persistence/types';
+import { MobileControls, isTouchDevice } from '../ui/MobileControls';
 
 interface WorldSceneProps {
   onStartQuest: (quest: Quest) => void;
@@ -52,11 +53,9 @@ const NPC_POSITIONS: Record<string, Record<string, [number, number, number]>> = 
     'quest-lunch-count': [4, 0, -12],
   },
   'world-forest': {
-    'quest-forest-path': [-10, 0, -5],
-    'quest-enchanted-grove': [10, 0, -5],
-    'quest-mushroom-ring': [0, 0, -10],
-    'quest-fairy-lights': [-14, 0, 2],
-    'quest-owl-wisdom': [14, 0, -8],
+    'quest-fairy-lights': [-10, 0, -5],
+    'quest-owl-wisdom': [10, 0, -5],
+    'quest-mushroom-math': [0, 0, -10],
     'quest-forest-guardian': [0, 0, -16],
   },
   'world-castle': {
@@ -87,8 +86,7 @@ const BOSS_POSITIONS: Record<string, Record<string, [number, number, number]>> =
     'boss-multiplication-monster': [0, 0, -18],
   },
   'world-forest': {
-    'boss-forest-guardian': [0, 0, -18],
-    'boss-tree-spirit': [-10, 0, -16],
+    'boss-tree-spirit': [0, 0, -18],
   },
   'world-castle': {
     'boss-math-dragon': [0, 0, -18],
@@ -139,6 +137,24 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
     // Update test API with player position
     updatePlayerPosition(position.x, position.y, position.z);
   }, []);
+
+  // Check if mobile device
+  const isMobile = useMemo(() => isTouchDevice(), []);
+
+  // Mobile action handler (same as E key)
+  const handleMobileAction = useCallback(() => {
+    if (isQuestActive) return;
+
+    if (nearbyQuest) {
+      onStartQuest(nearbyQuest);
+    } else if (nearbyBoss) {
+      onStartBoss(nearbyBoss);
+    } else if (nearbyChest && !saveData.openedChestIds?.includes(nearbyChest.id)) {
+      onOpenChest(nearbyChest);
+    } else if (nearbyShard && !saveData.collectedShardIds?.includes(nearbyShard.id)) {
+      onCollectShard(nearbyShard);
+    }
+  }, [isQuestActive, nearbyQuest, nearbyBoss, nearbyChest, nearbyShard, onStartQuest, onStartBoss, onOpenChest, onCollectShard, saveData.openedChestIds, saveData.collectedShardIds]);
 
   // Handle E key for interaction
   useEffect(() => {
@@ -328,8 +344,8 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
         ))}
       </Canvas>
 
-      {/* Controls hint */}
-      {!isQuestActive && (
+      {/* Controls hint - only show on desktop */}
+      {!isQuestActive && !isMobile && (
         <div
           style={{
             position: 'absolute',
@@ -346,6 +362,14 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
         >
           <strong>Controls:</strong> WASD or Arrow Keys to move | E or Click NPC to talk
         </div>
+      )}
+
+      {/* Mobile controls */}
+      {isMobile && (
+        <MobileControls
+          onAction={handleMobileAction}
+          disabled={isQuestActive}
+        />
       )}
     </div>
   );

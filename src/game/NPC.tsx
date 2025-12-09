@@ -3,11 +3,12 @@
  * Renders an NPC character that players can interact with to start quests.
  */
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Text, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Quest } from '../learning/types';
+import { isTouchDevice } from '../ui/MobileControls';
 
 interface NPCProps {
   quest: Quest;
@@ -23,6 +24,7 @@ export function NPC({ quest, position, isCompleted, onInteract, playerPosition }
   const groupRef = useRef<THREE.Group>(null);
   const [isNear, setIsNear] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const isMobile = useMemo(() => isTouchDevice(), []);
 
   // Check distance to player and handle bobbing animation
   useFrame((state) => {
@@ -171,7 +173,7 @@ export function NPC({ quest, position, isCompleted, onInteract, playerPosition }
               transform: hovered ? 'scale(1.1)' : 'scale(1)',
             }}
           >
-            {isCompleted ? '✓ Quest Complete' : `Press E or Click: ${quest.title}`}
+            {isCompleted ? '✓ Quest Complete' : (isMobile ? `Tap to talk: ${quest.title}` : `Press E or Click: ${quest.title}`)}
           </div>
         </Html>
       )}
