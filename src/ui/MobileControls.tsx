@@ -80,10 +80,7 @@ export function MobileControls({ onAction, disabled = false }: MobileControlsPro
     mobileInputState.turn = -normalizedX;
   }, []);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    const touch = Array.from(e.changedTouches).find(t => t.identifier === touchIdRef.current);
-    if (!touch) return;
-
+  const resetJoystick = useCallback(() => {
     touchIdRef.current = null;
     setIsActive(false);
 
@@ -97,6 +94,14 @@ export function MobileControls({ onAction, disabled = false }: MobileControlsPro
     mobileInputState.turn = 0;
   }, []);
 
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    // If we find our touch in changedTouches, or if there are no touches left, reset
+    const touch = Array.from(e.changedTouches).find(t => t.identifier === touchIdRef.current);
+    if (touch || e.touches.length === 0) {
+      resetJoystick();
+    }
+  }, [resetJoystick]);
+
   // Prevent default touch behavior to avoid scrolling
   useEffect(() => {
     const preventScroll = (e: TouchEvent) => {
@@ -108,6 +113,38 @@ export function MobileControls({ onAction, disabled = false }: MobileControlsPro
     document.addEventListener('touchmove', preventScroll, { passive: false });
     return () => document.removeEventListener('touchmove', preventScroll);
   }, []);
+
+  // Reset state when disabled changes or component unmounts
+  useEffect(() => {
+    if (disabled) {
+      resetJoystick();
+    }
+    return () => {
+      // Cleanup on unmount - ensure movement stops
+      mobileInputState.forward = 0;
+      mobileInputState.turn = 0;
+    };
+  }, [disabled, resetJoystick]);
+
+  // Also add a window blur listener to reset when focus is lost
+  useEffect(() => {
+    const handleBlur = () => {
+      resetJoystick();
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        resetJoystick();
+      }
+    };
+
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [resetJoystick]);
 
   if (disabled) return null;
 

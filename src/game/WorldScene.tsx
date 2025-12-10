@@ -304,6 +304,7 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
             isCompleted={saveData.completedQuestIds.includes(quest.id)}
             onInteract={() => onStartQuest(quest)}
             playerPosition={playerPosition}
+            hideTooltip={isQuestActive}
           />
         ))}
 
@@ -316,6 +317,7 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
             isDefeated={saveData.defeatedBossIds?.includes(boss.id) || false}
             onInteract={() => onStartBoss(boss)}
             playerPosition={playerPosition}
+            hideTooltip={isQuestActive}
           />
         ))}
 

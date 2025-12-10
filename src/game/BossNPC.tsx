@@ -15,9 +15,10 @@ interface BossNPCProps {
   isDefeated: boolean;
   onInteract: () => void;
   playerPosition: THREE.Vector3;
+  hideTooltip?: boolean;
 }
 
-export function BossNPC({ boss, position, isDefeated, onInteract, playerPosition }: BossNPCProps) {
+export function BossNPC({ boss, position, isDefeated, onInteract, playerPosition, hideTooltip }: BossNPCProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -140,7 +141,7 @@ export function BossNPC({ boss, position, isDefeated, onInteract, playerPosition
       )}
 
       {/* Interaction prompt */}
-      {showPrompt && (
+      {showPrompt && !hideTooltip && (
         <Html position={[0, 4.2, 0]} center>
           <div
             style={{

@@ -16,11 +16,12 @@ interface NPCProps {
   isCompleted: boolean;
   onInteract: () => void;
   playerPosition: THREE.Vector3;
+  hideTooltip?: boolean;
 }
 
 const INTERACTION_DISTANCE = 4;
 
-export function NPC({ quest, position, isCompleted, onInteract, playerPosition }: NPCProps) {
+export function NPC({ quest, position, isCompleted, onInteract, playerPosition, hideTooltip }: NPCProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [isNear, setIsNear] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -152,7 +153,7 @@ export function NPC({ quest, position, isCompleted, onInteract, playerPosition }
       )}
 
       {/* Interaction prompt */}
-      {isNear && (
+      {isNear && !hideTooltip && (
         <Html position={[0, 3.6, 0]} center>
           <div
             onClick={onInteract}
