@@ -15,6 +15,26 @@ export const mobileInputState = {
   turn: 0,
 };
 
+// Shared teleport state (set by agent/test APIs)
+export const teleportState = {
+  pending: false,
+  targetX: 0,
+  targetZ: 0,
+};
+
+// Global interaction callback (set by WorldScene to allow agents to trigger interactions)
+export let agentInteractionCallback: (() => void) | null = null;
+
+export function setAgentInteractionCallback(callback: (() => void) | null) {
+  agentInteractionCallback = callback;
+}
+
+export function triggerAgentInteraction() {
+  if (agentInteractionCallback) {
+    agentInteractionCallback();
+  }
+}
+
 interface PlayerControllerProps {
   avatarConfig: AvatarConfig;
   onPositionChange: (position: THREE.Vector3) => void;
@@ -99,6 +119,15 @@ export function PlayerController({
     if (disabled) {
       isMovingRef.current = false;
       return;
+    }
+
+    // Handle teleport requests from agent/test APIs
+    if (teleportState.pending) {
+      positionRef.current.x = teleportState.targetX;
+      positionRef.current.z = teleportState.targetZ;
+      teleportState.pending = false;
+      // Notify immediately
+      onPositionChange(positionRef.current.clone());
     }
 
     const { forward, turn } = getMovement();

@@ -1,9 +1,10 @@
 /**
- * Quest Runner Hook
+ * Quest Runner Store
  * Manages the state and logic for running an active quest.
+ * Uses Zustand for global state accessible outside React components.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { create } from 'zustand';
 import type { Quest, Question } from '../learning/types';
 import { getQuestQuestions } from '../learning/learningEngine';
 import { getHintForQuestion, getEncouragementMessage, getMistakeMessage } from '../ai/aiHooks';
@@ -18,7 +19,7 @@ import {
   logHintUsed,
 } from '../firebase/analyticsService';
 
-export type QuestPhase = 'intro' | 'question' | 'feedback' | 'complete';
+export type QuestPhase = 'idle' | 'intro' | 'question' | 'feedback' | 'complete';
 
 interface QuestRunnerState {
   quest: Quest | null;
@@ -32,41 +33,54 @@ interface QuestRunnerState {
   incorrectCount: number;
   feedbackMessage: string;
   streak: number;
+  questionStartTime: number;
+  questStartTime: number;
+  hintsUsedForCurrentQuestion: number;
 }
 
-export function useQuestRunner() {
-  const { recordAnswer, completeQuest } = useGameState();
-  const questionStartTime = useRef<number>(Date.now());
-  const questStartTime = useRef<number>(Date.now());
-  const hintsUsedForCurrentQuestion = useRef<number>(0);
+interface QuestRunnerActions {
+  startQuest: (quest: Quest) => void;
+  beginQuestions: () => void;
+  submitAnswer: (answerIndex: number) => void;
+  showHintAction: () => void;
+  nextQuestion: () => void;
+  endQuest: () => void;
+  getCurrentQuestion: () => Question | null;
+  getHint: () => string;
+}
 
-  const [state, setState] = useState<QuestRunnerState>({
-    quest: null,
-    questions: [],
-    currentQuestionIndex: 0,
-    phase: 'intro',
-    selectedAnswer: null,
-    isCorrect: null,
-    showHint: false,
-    correctCount: 0,
-    incorrectCount: 0,
-    feedbackMessage: '',
-    streak: 0,
-  });
+const initialState: QuestRunnerState = {
+  quest: null,
+  questions: [],
+  currentQuestionIndex: 0,
+  phase: 'idle',
+  selectedAnswer: null,
+  isCorrect: null,
+  showHint: false,
+  correctCount: 0,
+  incorrectCount: 0,
+  feedbackMessage: '',
+  streak: 0,
+  questionStartTime: Date.now(),
+  questStartTime: Date.now(),
+  hintsUsedForCurrentQuestion: 0,
+};
 
-  const startQuest = useCallback((quest: Quest) => {
+export const useQuestRunner = create<QuestRunnerState & QuestRunnerActions>((set, get) => ({
+  ...initialState,
+
+  startQuest: (quest: Quest) => {
     logger.quest.started(quest.id, quest.title);
     const questions = getQuestQuestions(quest);
     logger.debug('quest', 'questions_generated', { questId: quest.id, count: questions.length });
 
     // Analytics: track quest start
-    questStartTime.current = Date.now();
     const userId = getUserId();
     if (userId) {
       logQuestStarted(userId, quest.id, quest.title).catch(console.error);
     }
 
-    setState({
+    set({
       quest,
       questions,
       currentQuestionIndex: 0,
@@ -78,194 +92,189 @@ export function useQuestRunner() {
       incorrectCount: 0,
       feedbackMessage: '',
       streak: 0,
+      questStartTime: Date.now(),
+      questionStartTime: Date.now(),
+      hintsUsedForCurrentQuestion: 0,
     });
-  }, []);
+  },
 
-  const beginQuestions = useCallback(() => {
+  beginQuestions: () => {
     logger.debug('quest', 'questions_phase_started');
-    questionStartTime.current = Date.now();
-    hintsUsedForCurrentQuestion.current = 0;
-    setState(prev => ({ ...prev, phase: 'question' }));
-  }, []);
+    set({
+      phase: 'question',
+      questionStartTime: Date.now(),
+      hintsUsedForCurrentQuestion: 0,
+    });
+  },
 
-  const submitAnswer = useCallback((answerIndex: number) => {
-    setState(prev => {
-      if (!prev.quest || prev.phase !== 'question') return prev;
+  submitAnswer: (answerIndex: number) => {
+    const state = get();
+    if (!state.quest || state.phase !== 'question') return;
 
-      const currentQuestion = prev.questions[prev.currentQuestionIndex];
-      const isCorrect = answerIndex === currentQuestion.correctIndex;
-      const timeToAnswerMs = Date.now() - questionStartTime.current;
+    const currentQuestion = state.questions[state.currentQuestionIndex];
+    const isCorrect = answerIndex === currentQuestion.correctIndex;
+    const timeToAnswerMs = Date.now() - state.questionStartTime;
 
-      // Log the answer
-      logger.quest.questionAnswered(
-        prev.quest.id,
-        prev.currentQuestionIndex,
+    // Log the answer
+    logger.quest.questionAnswered(
+      state.quest.id,
+      state.currentQuestionIndex,
+      isCorrect,
+      currentQuestion.skill
+    );
+
+    // Analytics: log detailed question event
+    const userId = getUserId();
+    if (userId) {
+      logQuestionEvent({
+        userId,
+        questId: state.quest.id,
+        questionId: currentQuestion.id,
+        skill: currentQuestion.skill,
+        difficulty: currentQuestion.difficulty,
         isCorrect,
-        currentQuestion.skill
-      );
+        selectedAnswer: answerIndex,
+        correctAnswer: currentQuestion.correctIndex,
+        timeToAnswerMs,
+        hintsUsed: state.hintsUsedForCurrentQuestion,
+        attemptNumber: 1,
+      }).catch(console.error);
+    }
 
-      // Analytics: log detailed question event
+    // Record the answer in game state
+    useGameState.getState().recordAnswer(currentQuestion.skill, isCorrect);
+
+    const newStreak = isCorrect ? state.streak + 1 : 0;
+    const feedbackMessage = isCorrect
+      ? getEncouragementMessage(newStreak)
+      : getMistakeMessage();
+
+    set({
+      selectedAnswer: answerIndex,
+      isCorrect,
+      phase: 'feedback',
+      correctCount: state.correctCount + (isCorrect ? 1 : 0),
+      incorrectCount: state.incorrectCount + (isCorrect ? 0 : 1),
+      feedbackMessage,
+      streak: newStreak,
+    });
+  },
+
+  showHintAction: () => {
+    const state = get();
+    if (state.quest) {
+      logger.quest.hintUsed(state.quest.id, state.currentQuestionIndex);
+
+      // Analytics: track hint usage
+      const userId = getUserId();
+      const currentQuestion = state.questions[state.currentQuestionIndex];
+      if (userId && currentQuestion) {
+        logHintUsed(userId, state.quest.id, currentQuestion.id, currentQuestion.skill).catch(console.error);
+      }
+    }
+    set({
+      showHint: true,
+      hintsUsedForCurrentQuestion: state.hintsUsedForCurrentQuestion + 1,
+    });
+  },
+
+  nextQuestion: () => {
+    const state = get();
+    if (!state.quest) return;
+
+    const nextIndex = state.currentQuestionIndex + 1;
+
+    // Check if quest is complete
+    if (nextIndex >= state.questions.length) {
+      // Analytics: log quest completion
+      const timeSpentSeconds = Math.floor((Date.now() - state.questStartTime) / 1000);
       const userId = getUserId();
       if (userId) {
-        logQuestionEvent({
+        logQuestCompleted(
           userId,
-          questId: prev.quest.id,
-          questionId: currentQuestion.id,
-          skill: currentQuestion.skill,
-          difficulty: currentQuestion.difficulty,
-          isCorrect,
-          selectedAnswer: answerIndex,
-          correctAnswer: currentQuestion.correctIndex,
-          timeToAnswerMs,
-          hintsUsed: hintsUsedForCurrentQuestion.current,
-          attemptNumber: 1,
-        }).catch(console.error);
+          state.quest.id,
+          state.quest.title,
+          state.correctCount,
+          state.questions.length,
+          state.quest.rewardXp,
+          timeSpentSeconds
+        ).catch(console.error);
       }
 
-      // Record the answer in game state
-      recordAnswer(currentQuestion.skill, isCorrect);
+      // Complete the quest
+      useGameState.getState().completeQuest(
+        state.quest.id,
+        state.quest.rewardXp,
+        state.correctCount,
+        state.questions.length,
+        state.quest.title
+      );
 
-      const newStreak = isCorrect ? prev.streak + 1 : 0;
-      const feedbackMessage = isCorrect
-        ? getEncouragementMessage(newStreak)
-        : getMistakeMessage();
+      set({ phase: 'complete' });
+      return;
+    }
 
-      return {
-        ...prev,
-        selectedAnswer: answerIndex,
-        isCorrect,
-        phase: 'feedback',
-        correctCount: prev.correctCount + (isCorrect ? 1 : 0),
-        incorrectCount: prev.incorrectCount + (isCorrect ? 0 : 1),
-        feedbackMessage,
-        streak: newStreak,
-      };
+    // Move to next question
+    set({
+      currentQuestionIndex: nextIndex,
+      phase: 'question',
+      selectedAnswer: null,
+      isCorrect: null,
+      showHint: false,
+      feedbackMessage: '',
+      questionStartTime: Date.now(),
+      hintsUsedForCurrentQuestion: 0,
     });
-  }, [recordAnswer]);
+  },
 
-  const showHint = useCallback(() => {
-    setState(prev => {
-      if (prev.quest) {
-        logger.quest.hintUsed(prev.quest.id, prev.currentQuestionIndex);
+  endQuest: () => {
+    const state = get();
+    if (state.quest && state.phase !== 'complete' && state.phase !== 'idle') {
+      logger.quest.abandoned(state.quest.id, state.currentQuestionIndex);
 
-        // Analytics: track hint usage
-        hintsUsedForCurrentQuestion.current += 1;
-        const userId = getUserId();
-        const currentQuestion = prev.questions[prev.currentQuestionIndex];
-        if (userId && currentQuestion) {
-          logHintUsed(userId, prev.quest.id, currentQuestion.id, currentQuestion.skill).catch(console.error);
-        }
+      // Analytics: log quest abandoned
+      const userId = getUserId();
+      if (userId) {
+        logQuestAbandoned(
+          userId,
+          state.quest.id,
+          state.quest.title,
+          state.currentQuestionIndex,
+          state.questions.length
+        ).catch(console.error);
       }
-      return { ...prev, showHint: true };
-    });
-  }, []);
+    }
+    set(initialState);
+  },
 
-  const nextQuestion = useCallback(() => {
-    setState(prev => {
-      if (!prev.quest) return prev;
-
-      const nextIndex = prev.currentQuestionIndex + 1;
-
-      // Check if quest is complete
-      if (nextIndex >= prev.questions.length) {
-        // Analytics: log quest completion
-        const timeSpentSeconds = Math.floor((Date.now() - questStartTime.current) / 1000);
-        const userId = getUserId();
-        if (userId) {
-          logQuestCompleted(
-            userId,
-            prev.quest.id,
-            prev.quest.title,
-            prev.correctCount,
-            prev.questions.length,
-            prev.quest.rewardXp,
-            timeSpentSeconds
-          ).catch(console.error);
-        }
-
-        // Complete the quest
-        completeQuest(
-          prev.quest.id,
-          prev.quest.rewardXp,
-          prev.correctCount,
-          prev.questions.length,
-          prev.quest.title
-        );
-
-        return {
-          ...prev,
-          phase: 'complete',
-        };
-      }
-
-      // Reset timer and hints for next question
-      questionStartTime.current = Date.now();
-      hintsUsedForCurrentQuestion.current = 0;
-
-      // Move to next question
-      return {
-        ...prev,
-        currentQuestionIndex: nextIndex,
-        phase: 'question',
-        selectedAnswer: null,
-        isCorrect: null,
-        showHint: false,
-        feedbackMessage: '',
-      };
-    });
-  }, [completeQuest]);
-
-  const endQuest = useCallback(() => {
-    setState(prev => {
-      if (prev.quest && prev.phase !== 'complete') {
-        logger.quest.abandoned(prev.quest.id, prev.currentQuestionIndex);
-
-        // Analytics: log quest abandoned
-        const userId = getUserId();
-        if (userId) {
-          logQuestAbandoned(
-            userId,
-            prev.quest.id,
-            prev.quest.title,
-            prev.currentQuestionIndex,
-            prev.questions.length
-          ).catch(console.error);
-        }
-      }
-      return {
-        quest: null,
-        questions: [],
-        currentQuestionIndex: 0,
-        phase: 'intro',
-        selectedAnswer: null,
-        isCorrect: null,
-        showHint: false,
-        correctCount: 0,
-        incorrectCount: 0,
-        feedbackMessage: '',
-        streak: 0,
-      };
-    });
-  }, []);
-
-  const getCurrentQuestion = useCallback((): Question | null => {
+  getCurrentQuestion: (): Question | null => {
+    const state = get();
     if (!state.quest || state.currentQuestionIndex >= state.questions.length) {
       return null;
     }
     return state.questions[state.currentQuestionIndex];
-  }, [state.quest, state.currentQuestionIndex, state.questions]);
+  },
 
-  const getHint = useCallback((): string => {
-    const question = getCurrentQuestion();
+  getHint: (): string => {
+    const question = get().getCurrentQuestion();
     if (!question) return '';
     return getHintForQuestion(question, 1);
-  }, [getCurrentQuestion]);
+  },
+}));
+
+// Selector for getting current question (for convenience in components)
+export const selectCurrentQuestion = (state: QuestRunnerState & QuestRunnerActions) =>
+  state.getCurrentQuestion();
+
+// Legacy hook interface for backwards compatibility
+export function useQuestRunnerLegacy() {
+  const state = useQuestRunner();
 
   return {
     // State
     quest: state.quest,
     phase: state.phase,
-    currentQuestion: getCurrentQuestion(),
+    currentQuestion: state.getCurrentQuestion(),
     currentQuestionIndex: state.currentQuestionIndex,
     totalQuestions: state.questions.length,
     selectedAnswer: state.selectedAnswer,
@@ -275,15 +284,15 @@ export function useQuestRunner() {
     incorrectCount: state.incorrectCount,
     feedbackMessage: state.feedbackMessage,
     streak: state.streak,
-    isActive: state.quest !== null,
+    isActive: state.quest !== null && state.phase !== 'idle',
 
     // Actions
-    startQuest,
-    beginQuestions,
-    submitAnswer,
-    showHintAction: showHint,
-    nextQuestion,
-    endQuest,
-    getHint,
+    startQuest: state.startQuest,
+    beginQuestions: state.beginQuestions,
+    submitAnswer: state.submitAnswer,
+    showHintAction: state.showHintAction,
+    nextQuestion: state.nextQuestion,
+    endQuest: state.endQuest,
+    getHint: state.getHint,
   };
 }

@@ -27,8 +27,10 @@ import { AchievementQueue } from './ui/AchievementPopup';
 import { WorldCompletePopup } from './ui/WorldCompletePopup';
 import { useAchievements } from './hooks/useAchievements';
 import { initAnalytics } from './firebase/config';
-import { initializeGameTestAPI } from './testing/agentTestAPI';
+import { initializeGameTestAPI, setStartQuestCallback } from './testing/agentTestAPI';
 import { initializeAutonomousAgent } from './testing/autonomousAgent';
+import { initializeSmartAgent } from './testing/smartAgent';
+import { quests } from './learning/quests';
 import type { Quest } from './learning/types';
 import type { BossBattle as BossBattleType } from './conquest/bosses';
 import type { TreasureChestDef, CrystalShardDef } from './persistence/types';
@@ -104,6 +106,8 @@ function App() {
     initializeGameTestAPI();
     // Initialize Autonomous Test Agent (accessible via window.gameAgent)
     initializeAutonomousAgent();
+    // Initialize Smart Agent (accessible via window.smartAgent)
+    initializeSmartAgent();
   }, []);
 
   // Initialize game state on mount
@@ -119,6 +123,20 @@ function App() {
   const handleStartQuest = (quest: Quest) => {
     setActiveQuest(quest);
   };
+
+  // Register callback for agent to start quests directly
+  useEffect(() => {
+    const startQuestByIdCallback = (questId: string): boolean => {
+      const quest = quests.find(q => q.id === questId);
+      if (quest && !activeQuest) {
+        setActiveQuest(quest);
+        return true;
+      }
+      return false;
+    };
+    setStartQuestCallback(startQuestByIdCallback);
+    return () => setStartQuestCallback(null);
+  }, [activeQuest]);
 
   const handleCloseQuest = () => {
     endQuest();

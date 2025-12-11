@@ -9,7 +9,7 @@ import { Sky } from '@react-three/drei';
 import * as THREE from 'three';
 import { Ground } from './Ground';
 import { ForestGround } from './worlds/ForestGround';
-import { PlayerController } from './PlayerController';
+import { PlayerController, setAgentInteractionCallback } from './PlayerController';
 import { NPC } from './NPC';
 import { BossNPC } from './BossNPC';
 import { TreasureChest } from './TreasureChest';
@@ -17,10 +17,11 @@ import { CrystalShard } from './CrystalShard';
 import { useGameState } from '../hooks/useGameState';
 import { getQuestsForWorld } from '../learning/quests';
 import { worlds } from '../worlds/worldDefinitions';
-import { getBossesForWorld } from '../conquest/bosses';
+import { getBossesForWorld, createBossForAIWorld } from '../conquest/bosses';
 import { getChestsForWorld } from '../exploration/treasureChests';
 import { getShardsForWorld } from '../exploration/crystalShards';
 import { updatePlayerPosition } from '../testing/agentTestAPI';
+import { isAIGeneratedWorld, getCachedWorld } from '../ai/worldCacheManager';
 import type { Quest } from '../learning/types';
 import type { BossBattle } from '../conquest/bosses';
 import type { TreasureChestDef, CrystalShardDef } from '../persistence/types';
@@ -118,8 +119,23 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
   }, [currentWorldId]);
 
   const worldBosses = useMemo(() => {
+    // Check if this is an AI-generated world
+    if (isAIGeneratedWorld(currentWorldId)) {
+      const cachedWorld = getCachedWorld(saveData.generatedWorlds || [], currentWorldId);
+      if (cachedWorld) {
+        // Create a boss based on the AI world's theme
+        const aiBoss = createBossForAIWorld(
+          currentWorldId,
+          cachedWorld.world.name,
+          cachedWorld.world.theme,
+          saveData.completedQuestIds || []
+        );
+        return aiBoss ? [aiBoss] : [];
+      }
+      return [];
+    }
     return getBossesForWorld(currentWorldId);
-  }, [currentWorldId]);
+  }, [currentWorldId, saveData.generatedWorlds, saveData.completedQuestIds]);
 
   const worldChests = useMemo(() => {
     return getChestsForWorld(currentWorldId);
@@ -130,7 +146,19 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
   }, [currentWorldId]);
 
   const npcPositions = NPC_POSITIONS[currentWorldId] || NPC_POSITIONS['world-school'];
-  const bossPositions = BOSS_POSITIONS[currentWorldId] || {};
+
+  // Get boss positions - for AI worlds, create dynamic position
+  const bossPositions = useMemo(() => {
+    if (isAIGeneratedWorld(currentWorldId)) {
+      // AI worlds get a default boss position at the far end of the map
+      const aiBossPositions: Record<string, [number, number, number]> = {};
+      worldBosses.forEach(boss => {
+        aiBossPositions[boss.id] = [0, 0, -18];
+      });
+      return aiBossPositions;
+    }
+    return BOSS_POSITIONS[currentWorldId] || {};
+  }, [currentWorldId, worldBosses]);
 
   const handlePositionChange = useCallback((position: THREE.Vector3) => {
     setPlayerPosition(position);
@@ -155,6 +183,12 @@ export function WorldScene({ onStartQuest, onStartBoss, onOpenChest, onCollectSh
       onCollectShard(nearbyShard);
     }
   }, [isQuestActive, nearbyQuest, nearbyBoss, nearbyChest, nearbyShard, onStartQuest, onStartBoss, onOpenChest, onCollectShard, saveData.openedChestIds, saveData.collectedShardIds]);
+
+  // Register agent interaction callback (allows AI agents to trigger interactions)
+  useEffect(() => {
+    setAgentInteractionCallback(handleMobileAction);
+    return () => setAgentInteractionCallback(null);
+  }, [handleMobileAction]);
 
   // Handle E key for interaction
   useEffect(() => {

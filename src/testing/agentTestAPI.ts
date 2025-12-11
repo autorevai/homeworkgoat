@@ -12,6 +12,7 @@ import { CRYSTAL_SHARDS } from '../exploration/crystalShards';
 import { TREASURE_CHESTS } from '../exploration/treasureChests';
 import { worlds } from '../worlds/worldDefinitions';
 import { getBossesForWorld } from '../conquest/bosses';
+import { teleportState } from '../game/PlayerController';
 
 export interface Interactable {
   id: string;
@@ -81,8 +82,23 @@ export interface TestResult {
 
 // Store for player position updates (set by WorldScene)
 let currentPlayerPosition = { x: 0, y: 0, z: 8 };
-let teleportCallback: ((x: number, z: number) => void) | null = null;
 const logs: string[] = [];
+
+// Callback for directly starting quests (set by App.tsx)
+let startQuestCallback: ((questId: string) => boolean) | null = null;
+
+export function setStartQuestCallback(callback: ((questId: string) => boolean) | null) {
+  startQuestCallback = callback;
+}
+
+export function startQuestById(questId: string): boolean {
+  if (startQuestCallback) {
+    log(`Starting quest directly: ${questId}`);
+    return startQuestCallback(questId);
+  }
+  log(`ERROR: startQuestCallback not registered`);
+  return false;
+}
 
 function log(message: string) {
   const timestamp = new Date().toISOString();
@@ -230,10 +246,10 @@ export function createGameTestAPI(): GameTestAPI {
       // Update internal position tracking
       currentPlayerPosition = { x, y: 0, z };
 
-      // Try callback if available (for actual in-game movement)
-      if (teleportCallback) {
-        teleportCallback(x, z);
-      }
+      // Set teleport state for PlayerController to pick up
+      teleportState.targetX = x;
+      teleportState.targetZ = z;
+      teleportState.pending = true;
     },
 
     setScreen(screen: string) {
@@ -441,13 +457,6 @@ export function createGameTestAPI(): GameTestAPI {
  */
 export function updatePlayerPosition(x: number, y: number, z: number) {
   currentPlayerPosition = { x, y, z };
-}
-
-/**
- * Set teleport callback (called by PlayerController)
- */
-export function setTeleportCallback(callback: (x: number, z: number) => void) {
-  teleportCallback = callback;
 }
 
 /**

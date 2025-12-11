@@ -11,6 +11,7 @@ import { getCurrentBossPhase, calculateBossDamage, getDifficultyInfo } from '../
 import { getQuestionsByIds } from '../learning/questions';
 import type { Question } from '../learning/types';
 import { SpeakerButton } from './SpeakerButton';
+import { AnimatedBoss } from './AnimatedBoss';
 
 /**
  * Speed bonus tiers for answering questions quickly
@@ -66,6 +67,10 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
   const [lastSpeedTier, setLastSpeedTier] = useState<SpeedTier | null>(null);
   const [totalDamageDealt, setTotalDamageDealt] = useState(0);
   const questionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Boss animation states
+  const [bossShaking, setBossShaking] = useState(false);
+  const [bossHurt, setBossHurt] = useState(false);
 
   const damagePerHit = calculateBossDamage(boss);
   const currentBossPhase = getCurrentBossPhase(boss, bossHealth);
@@ -177,6 +182,12 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
       if (isCorrect) {
         setCorrectCount((prev) => prev + 1);
 
+        // Trigger boss hurt animation
+        setBossShaking(true);
+        setBossHurt(true);
+        setTimeout(() => setBossShaking(false), 500);
+        setTimeout(() => setBossHurt(false), 800);
+
         // Apply speed multiplier to damage
         const speedDamage = Math.ceil(damagePerHit * speedTier.multiplier);
         setTotalDamageDealt((prev) => prev + speedDamage);
@@ -239,9 +250,10 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: '12px',
         position: 'relative',
         overflow: 'hidden',
+        boxSizing: 'border-box',
       }}
     >
       {/* Animated background particles */}
@@ -264,7 +276,16 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             zIndex: 1,
           }}
         >
-          <span style={{ fontSize: '100px' }}>{boss.bossEmoji}</span>
+          <div style={{ transform: 'scale(1.5)', marginBottom: '10px' }}>
+            <AnimatedBoss
+              bossId={boss.id}
+              health={100}
+              isHurt={false}
+              isShaking={false}
+              accentColor={boss.accentColor}
+              templateBossId={boss.templateBossId}
+            />
+          </div>
           <h1
             style={{
               fontSize: '48px',
@@ -338,26 +359,40 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             width: '100%',
             maxWidth: '700px',
             zIndex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            maxHeight: 'calc(100vh - 40px)',
+            overflow: 'hidden',
           }}
         >
-          {/* Boss header */}
+          {/* Boss header with animated sprite */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '15px',
-              marginBottom: '20px',
+              gap: '12px',
+              marginBottom: '8px',
+              flexShrink: 0,
             }}
           >
-            <span style={{ fontSize: '60px' }}>{boss.bossEmoji}</span>
-            <div style={{ flex: 1 }}>
+            {/* Animated Boss Character */}
+            <AnimatedBoss
+              bossId={boss.id}
+              health={bossHealth}
+              isHurt={bossHurt}
+              isShaking={bossShaking}
+              accentColor={boss.accentColor}
+              templateBossId={boss.templateBossId}
+            />
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, color: boss.accentColor }}>{boss.bossName}</h2>
+                <h2 style={{ margin: 0, color: boss.accentColor, fontSize: '16px' }}>{boss.bossName}</h2>
                 {boss.timeLimit && (
                   <span
                     style={{
                       color: timeRemaining < 30 ? '#f44336' : '#FFD700',
-                      fontSize: '20px',
+                      fontSize: '16px',
                       fontWeight: 'bold',
                     }}
                   >
@@ -368,45 +403,65 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
               {/* Health bar */}
               <div
                 style={{
-                  height: '20px',
+                  height: '14px',
                   background: 'rgba(0,0,0,0.5)',
-                  borderRadius: '10px',
+                  borderRadius: '7px',
                   overflow: 'hidden',
-                  marginTop: '10px',
+                  marginTop: '6px',
                   border: `2px solid ${boss.accentColor}`,
+                  position: 'relative',
                 }}
               >
                 <div
+                  className={bossHurt ? 'health-flash' : ''}
                   style={{
                     height: '100%',
                     width: `${bossHealth}%`,
-                    background: `linear-gradient(90deg, #f44336, ${boss.accentColor})`,
-                    transition: 'width 0.5s ease-out',
+                    background: bossHealth < 30
+                      ? 'linear-gradient(90deg, #f44336, #ff6b6b)'
+                      : bossHealth < 60
+                        ? 'linear-gradient(90deg, #ff9800, #ffb74d)'
+                        : `linear-gradient(90deg, #4CAF50, ${boss.accentColor})`,
+                    transition: 'width 0.5s ease-out, background 0.3s ease',
                   }}
                 />
+                {/* Health percentage */}
+                <span style={{
+                  position: 'absolute',
+                  right: '6px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  color: 'white',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+                }}>
+                  {bossHealth}%
+                </span>
               </div>
-              <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '12px' }}>
+              <p style={{ margin: '3px 0 0 0', color: '#888', fontSize: '11px' }}>
                 Phase: {currentBossPhase.name}
               </p>
             </div>
           </div>
 
-          {/* Boss dialogue */}
+          {/* Boss dialogue - compact */}
           <div
             style={{
               background: 'rgba(0,0,0,0.5)',
-              borderRadius: '12px',
-              padding: '15px',
-              marginBottom: '20px',
-              borderLeft: `4px solid ${boss.accentColor}`,
+              borderRadius: '8px',
+              padding: '8px 12px',
+              marginBottom: '8px',
+              borderLeft: `3px solid ${boss.accentColor}`,
               position: 'relative',
+              flexShrink: 0,
             }}
           >
-            <p style={{ margin: 0, fontStyle: 'italic', color: '#b8b8b8' }}>{currentDialogue}</p>
+            <p style={{ margin: 0, fontStyle: 'italic', color: '#b8b8b8', fontSize: '13px', paddingRight: '30px' }}>{currentDialogue}</p>
             <SpeakerButton
               text={currentDialogue}
               size="small"
-              style={{ position: 'absolute', top: '10px', right: '10px' }}
+              style={{ position: 'absolute', top: '6px', right: '6px' }}
             />
           </div>
 
@@ -414,32 +469,36 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
           <div
             style={{
               background: 'rgba(255,255,255,0.05)',
-              borderRadius: '16px',
-              padding: '25px',
-              marginBottom: '20px',
+              borderRadius: '12px',
+              padding: '12px',
+              marginBottom: '8px',
               position: 'relative',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '12px' }}>
               <span style={{ color: '#888' }}>
                 Question {currentQuestionIndex + 1} of {questions.length}
               </span>
               <span style={{ color: '#4CAF50' }}>{correctCount} hits</span>
             </div>
 
-            {/* Speed Timer Bar */}
+            {/* Speed Timer Bar - compact */}
             {!showFeedback && (
               <div
                 style={{
-                  marginBottom: '15px',
+                  marginBottom: '8px',
                   position: 'relative',
                 }}
               >
                 <div
                   style={{
-                    height: '8px',
+                    height: '6px',
                     background: 'rgba(0,0,0,0.3)',
-                    borderRadius: '4px',
+                    borderRadius: '3px',
                     overflow: 'hidden',
                   }}
                 >
@@ -469,8 +528,8 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    marginTop: '4px',
-                    fontSize: '11px',
+                    marginTop: '2px',
+                    fontSize: '10px',
                     color: '#666',
                   }}
                 >
@@ -490,9 +549,9 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             )}
             <p
               style={{
-                fontSize: '24px',
+                fontSize: '20px',
                 textAlign: 'center',
-                margin: '0 0 20px 0',
+                margin: '0 0 12px 0',
                 fontWeight: 'bold',
               }}
             >
@@ -500,20 +559,22 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             </p>
             <SpeakerButton
               text={currentQuestion.prompt}
-              size="medium"
-              style={{ position: 'absolute', top: '15px', right: '15px' }}
+              size="small"
+              style={{ position: 'absolute', top: '10px', right: '10px' }}
             />
 
-            {/* Choices */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            {/* Choices - compact */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               {currentQuestion.choices.map((choice, index) => (
                 <button
                   key={index}
                   onClick={() => handleAnswer(index)}
                   disabled={showFeedback}
+                  data-answer-index={index}
+                  data-correct={index === currentQuestion.correctIndex ? 'true' : 'false'}
                   style={{
-                    padding: '15px',
-                    fontSize: '20px',
+                    padding: '12px 8px',
+                    fontSize: '18px',
                     fontWeight: 'bold',
                     background: showFeedback
                       ? index === currentQuestion.correctIndex
@@ -528,7 +589,7 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
                         ? '#4CAF50'
                         : 'transparent'
                       : 'rgba(255,255,255,0.2)',
-                    borderRadius: '12px',
+                    borderRadius: '10px',
                     color: 'white',
                     cursor: showFeedback ? 'default' : 'pointer',
                     transition: 'all 0.2s',
@@ -540,66 +601,67 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             </div>
           </div>
 
-          {/* Feedback with Speed Bonus */}
+          {/* Feedback with Speed Bonus - compact */}
           {showFeedback && (
             <div
               className="animate-fade-in"
               style={{
                 textAlign: 'center',
-                padding: '20px',
+                padding: '10px',
                 background: lastAnswerCorrect
                   ? `linear-gradient(135deg, rgba(76, 175, 80, 0.2) 0%, ${lastSpeedTier ? lastSpeedTier.color + '33' : 'rgba(76, 175, 80, 0.2)'} 100%)`
                   : 'rgba(244, 67, 54, 0.2)',
-                borderRadius: '12px',
+                borderRadius: '10px',
                 border: lastAnswerCorrect && lastSpeedTier && lastSpeedTier.multiplier > 1
                   ? `2px solid ${lastSpeedTier.color}`
                   : 'none',
+                flexShrink: 0,
               }}
             >
               {lastAnswerCorrect && lastSpeedTier ? (
-                <>
-                  {/* Speed tier banner */}
-                  {lastSpeedTier.multiplier > 1 && (
-                    <div
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        color: lastSpeedTier.color,
-                        textTransform: 'uppercase',
-                        letterSpacing: '2px',
-                        marginBottom: '8px',
-                        textShadow: `0 0 10px ${lastSpeedTier.color}`,
-                      }}
-                    >
-                      {lastSpeedTier.emoji} {lastSpeedTier.name} SPEED {lastSpeedTier.emoji}
-                    </div>
-                  )}
-                  <span style={{ fontSize: '40px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '28px' }}>
                     {lastSpeedTier.multiplier >= 2 ? '⚡💥⚡' : lastSpeedTier.multiplier >= 1.5 ? '🔥💥🔥' : '💥'}
                   </span>
-                  <p
-                    style={{
-                      margin: '10px 0 0 0',
-                      color: lastSpeedTier.color,
-                      fontSize: lastSpeedTier.multiplier > 1 ? '20px' : '16px',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    -{Math.ceil(damagePerHit * lastSpeedTier.multiplier)} HP
+                  <div>
                     {lastSpeedTier.multiplier > 1 && (
-                      <span style={{ fontSize: '14px', marginLeft: '8px', opacity: 0.8 }}>
-                        ({lastSpeedTier.multiplier}x damage!)
-                      </span>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          color: lastSpeedTier.color,
+                          textTransform: 'uppercase',
+                          letterSpacing: '1px',
+                          textShadow: `0 0 10px ${lastSpeedTier.color}`,
+                        }}
+                      >
+                        {lastSpeedTier.emoji} {lastSpeedTier.name} SPEED
+                      </div>
                     )}
-                  </p>
-                </>
+                    <p
+                      style={{
+                        margin: 0,
+                        color: lastSpeedTier.color,
+                        fontSize: lastSpeedTier.multiplier > 1 ? '16px' : '14px',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      -{Math.ceil(damagePerHit * lastSpeedTier.multiplier)} HP
+                      {lastSpeedTier.multiplier > 1 && (
+                        <span style={{ fontSize: '11px', marginLeft: '5px', opacity: 0.8 }}>
+                          ({lastSpeedTier.multiplier}x)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <span style={{ fontSize: '32px' }}>🛡️</span>
-                  <p style={{ margin: '10px 0 0 0', color: '#f44336' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '24px' }}>🛡️</span>
+                  <p style={{ margin: 0, color: '#f44336', fontSize: '14px' }}>
                     The boss blocked your attack!
                   </p>
-                </>
+                </div>
               )}
             </div>
           )}
@@ -655,7 +717,16 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
       {/* Defeat phase */}
       {battlePhase === 'defeat' && (
         <div className="animate-fade-in" style={{ textAlign: 'center', zIndex: 1 }}>
-          <span style={{ fontSize: '100px' }}>{boss.bossEmoji}</span>
+          <div style={{ transform: 'scale(1.3)', marginBottom: '10px' }}>
+            <AnimatedBoss
+              bossId={boss.id}
+              health={bossHealth}
+              isHurt={false}
+              isShaking={false}
+              accentColor={boss.accentColor}
+              templateBossId={boss.templateBossId}
+            />
+          </div>
           <h1
             style={{
               fontSize: '48px',
@@ -700,6 +771,38 @@ export function BossBattle({ boss, onClose }: BossBattleProps) {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-5px); }
             75% { transform: translateX(5px); }
+          }
+          /* Boss damage animations */
+          .boss-shake {
+            animation: bossShake 0.5s ease-in-out;
+          }
+          @keyframes bossShake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            10% { transform: translateX(-8px) rotate(-5deg); }
+            20% { transform: translateX(8px) rotate(5deg); }
+            30% { transform: translateX(-6px) rotate(-3deg); }
+            40% { transform: translateX(6px) rotate(3deg); }
+            50% { transform: translateX(-4px) rotate(-2deg); }
+            60% { transform: translateX(4px) rotate(2deg); }
+            70% { transform: translateX(-2px) rotate(-1deg); }
+            80% { transform: translateX(2px) rotate(1deg); }
+            90% { transform: translateX(-1px) rotate(0deg); }
+          }
+          @keyframes damageFlash {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(1.5); }
+          }
+          @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+          }
+          .health-flash {
+            animation: healthFlash 0.3s ease-out;
+          }
+          @keyframes healthFlash {
+            0% { filter: brightness(2); }
+            100% { filter: brightness(1); }
           }
         `}
       </style>

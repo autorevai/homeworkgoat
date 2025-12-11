@@ -33,6 +33,8 @@ export interface BossBattle {
   bossEmoji: string;
   backgroundColor: string;
   accentColor: string;
+  // For AI-generated bosses, tracks which template was used for animations
+  templateBossId?: string;
 }
 
 export interface BossBattleProgress {
@@ -46,6 +48,51 @@ export interface BossBattleProgress {
 }
 
 export const bossBattles: BossBattle[] = [
+  // =====================================================
+  // SCHOOL BOSS: Math Master (for AI-generated school worlds)
+  // =====================================================
+  {
+    id: 'boss-math-master',
+    name: 'The Math Master Challenge',
+    description: 'The legendary Math Master has appeared! Prove your skills to earn their respect!',
+    bossName: 'Professor Pythagoras',
+    worldId: 'world-school',
+    requiredQuests: [], // No requirements for AI worlds
+    questionCount: 8,
+    difficulty: 'medium',
+    phases: [
+      {
+        name: 'Pop Quiz',
+        healthThreshold: 100,
+        dialogue: '*adjusts glasses* Welcome, student! Let\'s see what you\'ve learned!',
+        speedMultiplier: 1.0,
+        questionDifficulty: 'easy',
+      },
+      {
+        name: 'Mid-Term',
+        healthThreshold: 60,
+        dialogue: '*writes on chalkboard* Impressive! Time for harder problems!',
+        speedMultiplier: 1.2,
+        questionDifficulty: 'mixed',
+      },
+      {
+        name: 'Final Exam',
+        healthThreshold: 25,
+        dialogue: '*smiles proudly* You\'re almost there! One final test!',
+        speedMultiplier: 1.0,
+        questionDifficulty: 'medium',
+      },
+    ],
+    rewards: {
+      xp: 350,
+      cosmetics: ['scholar-cap', 'math-badge'],
+      title: 'Honor Student',
+    },
+    bossEmoji: '🧙‍♂️',
+    backgroundColor: '#1a237e',
+    accentColor: '#3F51B5',
+  },
+
   // =====================================================
   // FOREST BOSS: Tree Spirit
   // =====================================================
@@ -324,9 +371,9 @@ export function createBossBattleProgress(boss: BossBattle): BossBattleProgress {
 /**
  * Get difficulty display info
  */
-export function getDifficultyInfo(difficulty: BossDifficulty): { 
-  label: string; 
-  color: string; 
+export function getDifficultyInfo(difficulty: BossDifficulty): {
+  label: string;
+  color: string;
   stars: number;
 } {
   switch (difficulty) {
@@ -339,4 +386,54 @@ export function getDifficultyInfo(difficulty: BossDifficulty): {
     case 'legendary':
       return { label: 'LEGENDARY', color: '#9C27B0', stars: 5 };
   }
+}
+
+/**
+ * Theme to boss mapping for AI-generated worlds
+ */
+const themeBossMap: Record<string, string> = {
+  school: 'boss-math-master',
+  forest: 'boss-tree-spirit',
+  castle: 'boss-math-dragon',
+  space: 'boss-cosmic-calculator',
+  underwater: 'boss-kraken-king',
+};
+
+/**
+ * Get a boss battle based on world theme.
+ * Used for AI-generated worlds to get a matching boss.
+ */
+export function getBossByTheme(theme: string): BossBattle | undefined {
+  const bossId = themeBossMap[theme];
+  if (bossId) {
+    return getBossBattleById(bossId);
+  }
+  // Default to Math Master for unknown themes
+  return getBossBattleById('boss-math-master');
+}
+
+/**
+ * Create a boss for an AI-generated world.
+ * Clones the theme-appropriate boss and customizes it for the specific world.
+ */
+export function createBossForAIWorld(
+  worldId: string,
+  worldName: string,
+  theme: string,
+  completedQuestIds: string[]
+): BossBattle | null {
+  const templateBoss = getBossByTheme(theme);
+  if (!templateBoss) return null;
+
+  // Create a customized copy for this AI world
+  const aiBoss: BossBattle = {
+    ...templateBoss,
+    id: `boss-ai-${worldId}`,
+    worldId: worldId,
+    name: `${worldName} Boss Battle`,
+    requiredQuests: completedQuestIds.length > 0 ? [completedQuestIds[0]] : [], // Require at least one quest
+    templateBossId: templateBoss.id, // Track which template was used for animations
+  };
+
+  return aiBoss;
 }

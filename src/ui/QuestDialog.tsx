@@ -24,9 +24,8 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
   const { playSound } = useSound();
   const {
     phase,
-    currentQuestion,
+    questions,
     currentQuestionIndex,
-    totalQuestions,
     isCorrect,
     showHint,
     correctCount,
@@ -37,7 +36,12 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
     showHintAction,
     nextQuestion,
     getHint,
+    getCurrentQuestion,
   } = useQuestRunner();
+
+  // Derived values
+  const currentQuestion = getCurrentQuestion();
+  const totalQuestions = questions.length;
 
   // Ability effect states
   const [eliminatedChoices, setEliminatedChoices] = useState<number[]>([]);
@@ -71,8 +75,8 @@ export function QuestDialog({ quest, onClose }: QuestDialogProps) {
         // Eliminate two wrong answers
         if (currentQuestion) {
           const wrongIndices = currentQuestion.choices
-            .map((_, i) => i)
-            .filter((i) => i !== currentQuestion.correctIndex && !eliminatedChoices.includes(i));
+            .map((_: number, i: number) => i)
+            .filter((i: number) => i !== currentQuestion.correctIndex && !eliminatedChoices.includes(i));
           const toEliminate = wrongIndices.slice(0, 2);
           setEliminatedChoices((prev) => [...prev, ...toEliminate]);
         }
