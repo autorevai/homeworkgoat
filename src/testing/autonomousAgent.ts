@@ -14,6 +14,7 @@
  */
 
 import { useGameState } from '../hooks/useGameState';
+import { useQuestRunner } from '../hooks/useQuestRunner';
 import { quests } from '../learning/quests';
 import { TREASURE_CHESTS } from '../exploration/treasureChests';
 import { CRYSTAL_SHARDS } from '../exploration/crystalShards';
@@ -64,13 +65,13 @@ interface AgentReport {
 }
 
 
-// NPC positions for each world (from WorldScene)
+// NPC positions for each world (must match WorldScene.tsx)
 const NPC_POSITIONS: Record<string, Record<string, [number, number, number]>> = {
   'world-school': {
-    'quest-number-hunt': [-8, 0, -6],
-    'quest-addition-adventure': [8, 0, -6],
-    'quest-subtraction-quest': [-6, 0, -12],
-    'quest-times-tables': [6, 0, -12],
+    'quest-power-crystals': [-8, 0, -6],
+    'quest-treasure-hunt': [8, 0, -6],
+    'quest-robot-repair': [-4, 0, -12],
+    'quest-lunch-count': [4, 0, -12],
   },
   'world-forest': {
     'quest-fairy-lights': [-10, 0, -5],
@@ -81,20 +82,20 @@ const NPC_POSITIONS: Record<string, Record<string, [number, number, number]>> = 
   'world-castle': {
     'quest-royal-vault': [-8, 0, -8],
     'quest-knight-training': [8, 0, -8],
-    'quest-wizard-potions': [0, 0, -12],
-    'quest-dragon-eggs': [0, 0, -18],
+    'quest-wizard-potions': [-12, 0, 0],
+    'quest-dragon-eggs': [12, 0, -12],
   },
   'world-space': {
-    'quest-asteroid-count': [-10, 0, -6],
-    'quest-fuel-calculation': [10, 0, -6],
-    'quest-alien-decoder': [0, 0, -12],
-    'quest-black-hole-math': [0, 0, -18],
+    'quest-asteroid-count': [-6, 0, -14],
+    'quest-fuel-calculation': [6, 0, -14],
+    'quest-alien-decoder': [-14, 0, 0],
+    'quest-gravity-math': [14, 0, -10],
   },
   'world-underwater': {
-    'quest-pearl-counting': [-8, 0, -6],
-    'quest-treasure-dive': [8, 0, -6],
-    'quest-coral-calculation': [0, 0, -12],
-    'quest-kraken-challenge': [0, 0, -18],
+    'quest-pearl-counting': [-8, 0, -8],
+    'quest-treasure-dive': [8, 0, -8],
+    'quest-coral-calculation': [0, 0, -14],
+    'quest-whale-song': [-12, 0, 0],
   },
 };
 
@@ -226,11 +227,32 @@ class AutonomousAgent {
     try {
       this.state.actionsPerformed++;
 
-      // Ensure we're in the game first
       const gameState = useGameState.getState();
-      if (gameState.screen !== 'playing' && gameState.screen !== 'questComplete') {
+      const questState = useQuestRunner.getState();
+
+      // Priority 1: Handle active quest dialog
+      if (questState.phase !== 'idle') {
+        this.handleActiveQuest(questState);
+        return;
+      }
+
+      // Priority 2: Handle boss battle screen
+      if (gameState.screen === 'bossBattle') {
+        this.handleBossBattle();
+        return;
+      }
+
+      // Priority 3: Handle quest complete screen - dismiss it
+      if (gameState.screen === 'questComplete') {
+        this.state.currentGoal = 'Dismissing quest complete...';
+        gameState.setScreen('playing');
+        return;
+      }
+
+      // Ensure we're in the game
+      if (gameState.screen !== 'playing') {
         this.ensureInGame();
-        return; // Wait for next tick after setting screen
+        return;
       }
 
       // Check for stuck state
@@ -272,6 +294,91 @@ class AutonomousAgent {
     } catch (error) {
       this.reportError('error', `Tick error: ${error}`, 'tick loop');
     }
+  }
+
+  /**
+   * Handle active quest - answer questions automatically
+   */
+  private handleActiveQuest(questState: ReturnType<typeof useQuestRunner.getState>) {
+    const { phase, getCurrentQuestion, beginQuestions, submitAnswer, nextQuestion } = questState;
+    const currentQuestion = getCurrentQuestion();
+
+    switch (phase) {
+      case 'intro':
+        // Start answering questions
+        this.state.currentGoal = 'Starting quest questions...';
+        this.log('Quest intro - beginning questions');
+        beginQuestions();
+        break;
+
+      case 'question':
+        if (currentQuestion) {
+          // Answer correctly (or incorrectly based on personality)
+          const shouldAnswerCorrectly = this.state.personality !== 'chaos' || Math.random() > 0.3;
+          const answerIndex = shouldAnswerCorrectly
+            ? currentQuestion.correctIndex
+            : this.getRandomWrongAnswer(currentQuestion.correctIndex, currentQuestion.choices.length);
+
+          this.state.currentGoal = `Answering question: ${currentQuestion.prompt.substring(0, 30)}...`;
+          this.log(`Submitting answer ${answerIndex} (correct: ${currentQuestion.correctIndex})`);
+          submitAnswer(answerIndex);
+        }
+        break;
+
+      case 'feedback':
+        // Move to next question after seeing feedback
+        this.state.currentGoal = 'Moving to next question...';
+        nextQuestion();
+        break;
+
+      case 'complete':
+        // Quest complete - will be handled by questComplete screen
+        this.state.currentGoal = 'Quest completed!';
+        this.log('Quest completed successfully');
+        break;
+    }
+  }
+
+  /**
+   * Handle boss battle - answer questions
+   */
+  private handleBossBattle() {
+    // Boss battles have their own state management
+    // We need to click answer buttons in the DOM
+    this.state.currentGoal = 'Fighting boss...';
+
+    // Find answer buttons and click the correct one
+    const answerButtons = document.querySelectorAll('[data-answer-index]');
+    if (answerButtons.length > 0) {
+      // For now, try to find the correct answer or guess
+      // The boss battle component should expose the correct index somehow
+      const correctButton = document.querySelector('[data-correct="true"]') as HTMLButtonElement;
+      if (correctButton && !correctButton.disabled) {
+        this.log('Clicking correct boss answer');
+        correctButton.click();
+        return;
+      }
+
+      // If we can't find marked correct answer, click first available
+      const firstEnabled = Array.from(answerButtons).find(
+        (btn) => !(btn as HTMLButtonElement).disabled
+      ) as HTMLButtonElement;
+      if (firstEnabled) {
+        this.log('Clicking boss answer button');
+        firstEnabled.click();
+      }
+    }
+  }
+
+  /**
+   * Get a random wrong answer index
+   */
+  private getRandomWrongAnswer(correctIndex: number, totalChoices: number): number {
+    const wrongIndices = [];
+    for (let i = 0; i < totalChoices; i++) {
+      if (i !== correctIndex) wrongIndices.push(i);
+    }
+    return wrongIndices[Math.floor(Math.random() * wrongIndices.length)];
   }
 
   /**
@@ -443,7 +550,7 @@ class AutonomousAgent {
   }
 
   /**
-   * Move toward a target position using keyboard simulation
+   * Move toward a target position - teleport directly for reliability
    */
   private moveToward(targetX: number, targetZ: number) {
     const api = (window as any).gameTestAPI;
@@ -454,25 +561,22 @@ class AutonomousAgent {
     const dz = targetZ - pos.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    if (dist < 2) {
+    if (dist < 3) {
       // Close enough, try to interact
+      this.log(`At target (${targetX}, ${targetZ}), pressing E to interact`);
       this.simulateKeyPress('e');
       return;
     }
 
-    // Determine which keys to press based on direction
-    // Forward is -Z, backward is +Z, left is -X, right is +X
-    if (dz < -1) {
-      this.simulateKeyPress('w'); // Move forward
-    } else if (dz > 1) {
-      this.simulateKeyPress('s'); // Move backward
-    }
+    // Move incrementally toward target (teleport in steps for visual effect)
+    const stepSize = 2; // Move 2 units at a time
+    const angle = Math.atan2(dx, dz);
+    const newX = pos.x + Math.sin(angle) * stepSize;
+    const newZ = pos.z + Math.cos(angle) * stepSize;
 
-    if (dx < -1) {
-      this.simulateKeyPress('a'); // Turn/move left
-    } else if (dx > 1) {
-      this.simulateKeyPress('d'); // Turn/move right
-    }
+    // Use teleport for reliable movement
+    api.teleportTo(newX, newZ);
+    this.log(`Moving to (${newX.toFixed(1)}, ${newZ.toFixed(1)}) toward target (${targetX}, ${targetZ})`);
   }
 
   /**
